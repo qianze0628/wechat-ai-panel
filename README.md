@@ -123,7 +123,7 @@ pyinstaller -F -w -n wechat-ai-panel --add-data "static;static" --add-data "conf
 |---|---|
 | [wechat-ai-panel-go](https://github.com/qianze0628/wechat-ai-panel-go) | 本项目的 Go 原生重构版 (单文件可执行, 端口 8081) |
 | [wechat-bot-optimized](https://github.com/qianze0628/wechat-bot-optimized) | Wechaty + wechat4u 微信桥接器 (端口 6189) |
-| [AstrBot](https://github.com/Soulter/AstrBot) | AI 对话引擎 (WebUI 6185 / OneBot WS 20129) |
+| [AstrBot](https://github.com/AstrBotDevs/AstrBot) | AI 对话引擎 (WebUI 6185 / OneBot WS 20129) |
 
 ## 📄 License
 
