@@ -293,6 +293,12 @@ def whitelist_contacts():
     for c in base_contacts:
         nm = c.get("name") or c.get("rawName") or ""
         c["chatted"] = nm in chatted_names
+    # 给群补充历史活跃发言者 (成员名微信侧拿不到时, 前端可显示这些真实昵称)
+    from .logs_core import room_active_members
+    for r in base_rooms:
+        rm = r.get("name") or ""
+        if rm:
+            r["activeNames"] = room_active_members(rm)
     return {"ok": True, "contacts": base_contacts, "rooms": base_rooms}
 
 

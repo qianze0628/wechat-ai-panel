@@ -176,6 +176,7 @@ export interface WhitelistRoom {
   memberCount?: number
   members?: WhitelistRoomMember[]
   fromHist?: boolean
+  activeNames?: string[]
 }
 
 export interface WhitelistContacts {

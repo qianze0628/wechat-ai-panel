@@ -60,6 +60,7 @@ export default function WhitelistPage() {
   const [showOfficial, setShowOfficial] = useState(false)
   const [onlyConfigured, setOnlyConfigured] = useState(false)
   const [hideUnchatted, setHideUnchatted] = useState(true)
+  const [hideHist, setHideHist] = useState(false)
 
   // 联系人同步重试: wechat4u 刚登录时只返回部分, 自动重试拉全
   const [retryCount, setRetryCount] = useState(0)
@@ -90,6 +91,8 @@ export default function WhitelistPage() {
     return (c.name || '').toLowerCase().includes(kw) || (c.rawName || '').toLowerCase().includes(kw) || (c.alias || '').toLowerCase().includes(kw) || String(c.hashId).includes(kw)
   })
   const filteredRooms = (rooms ?? []).filter((r) => {
+    // 隐藏历史补全群 (已退出或不再活跃的群)
+    if (hideHist && (r as { fromHist?: boolean }).fromHist) return false
     const kw = search.trim().toLowerCase()
     if (!kw) return true
     return (r.name || '').toLowerCase().includes(kw) || String(r.hashId).includes(kw)
@@ -392,6 +395,15 @@ export default function WhitelistPage() {
               <UsersRound size={15} className="text-primary-500" />
               群聊
               <span className="text-[11px] font-normal text-foreground-muted">{rooms?.length ?? 0} 个</span>
+              <button
+                onClick={() => setHideHist((v) => !v)}
+                className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] transition-colors ${
+                  hideHist ? 'bg-success/15 text-success' : 'bg-surface-solid text-foreground-muted'
+                }`}
+                title={hideHist ? '当前隐藏历史/已退出群, 点击显示全部' : '显示全部群 (含历史已退出)'}
+              >
+                {hideHist ? '隐藏历史' : '全部群'}
+              </button>
             </div>
             <div className="max-h-[320px] space-y-1 overflow-y-auto p-2">
               {filteredRooms.length === 0 && (
@@ -452,6 +464,19 @@ export default function WhitelistPage() {
                             </label>
                           )
                         })}
+                        {/* 活跃发言者 (消息记录反推, 真实昵称) */}
+                        {r.activeNames && r.activeNames.length > 0 && (
+                          <div className="mt-1 border-t border-border/60 px-2 pt-1.5 pb-1">
+                            <div className="text-[10.5px] font-semibold text-foreground-muted">活跃成员 (消息记录)</div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {r.activeNames.map((n) => (
+                                <span key={n} className="rounded-full bg-surface-solid px-1.5 py-px text-[10.5px] text-foreground">
+                                  {n}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

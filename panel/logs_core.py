@@ -117,6 +117,29 @@ def _chat_names():
     return names
 
 
+def room_active_members(room_name: str, limit: int = 30):
+    """返回某群在消息记录中的活跃发言者名 (按条数降序, 去重)"""
+    path = _messages_path()
+    if not os.path.isfile(path):
+        return []
+    counts = {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    m = json.loads(line)
+                except Exception:
+                    continue
+                if m.get("isRoom") and (m.get("roomName") or "") == room_name:
+                    t = m.get("talkerName") or ""
+                    if t and t != room_name:  # 排除群名自身
+                        counts[t] = counts.get(t, 0) + 1
+    except Exception:
+        return []
+    top = sorted(counts.items(), key=lambda kv: -kv[1])
+    return [n for n, _ in top[:limit]]
+
+
 def history_room_names(active_days: int = 30):
     """从 messages.jsonl 提取历史聊过的群名 (带条数排序).
 
