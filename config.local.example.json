@@ -1,0 +1,9 @@
+{
+  "// 说明": "本地私有配置覆盖 (不提交到仓库)。修改本文件可覆盖 config.json 的任意字段, 适合个人机器专属的路径/端口/密码。",
+  "// 示例": "port: 8080,  panel_password: '你的本地密码'",
+  "port": 8080,
+  "project_root": "",
+  "wechat_bot_dir": "",
+  "astrbot_root": "",
+  "astrbot_data_dir": ""
+}

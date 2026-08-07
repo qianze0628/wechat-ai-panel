@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+"""面板认证: token 管理 / require_auth / auth_dependency"""
+import secrets
+import time
+
+from fastapi import Depends, HTTPException
+from starlette.requests import Request
+
+from .config import CONFIG
+
+_AUTH_ENABLED = bool(CONFIG.get("panel_password"))
+_AUTH_TOKENS = {}  # token -> 过期时间 (epoch)
+_AUTH_TTL = 12 * 3600
+
+
+def get_auth_token(request: Request) -> str:
+    return request.cookies.get("panel_token") or request.headers.get("X-Auth-Token", "")
+
+
+def require_auth(request: Request):
+    """FastAPI 依赖: 认证校验 (未启用认证时直接放行)"""
+    if not _AUTH_ENABLED:
+        return True
+    token = get_auth_token(request)
+    if not token or _AUTH_TOKENS.get(token, 0) < time.time():
+        raise HTTPException(status_code=401, detail="未认证或会话已过期")
+    return True
+
+
+def auth_dependency():
+    """供写操作接口使用的依赖"""
+    return Depends(require_auth)
+
+
+def login(body: dict):
+    """校验 panel_password, 发放会话 token; 返回 (ok, message, token?)"""
+    pwd = body.get("password", "")
+    if not _AUTH_ENABLED:
+        return {"ok": True, "message": "面板未启用认证"}
+    if pwd == CONFIG.get("panel_password"):
+        token = secrets.token_hex(16)
+        _AUTH_TOKENS[token] = time.time() + _AUTH_TTL
+        return {"ok": True, "message": "登录成功", "token": token}
+    return {"ok": False, "message": "密码错误", "status": 401}
+
+
+def auth_status(request: Request):
+    if not _AUTH_ENABLED:
+        return {"enabled": False, "authed": True}
+    token = get_auth_token(request)
+    return {"enabled": True, "authed": bool(token and _AUTH_TOKENS.get(token, 0) >= time.time())}
