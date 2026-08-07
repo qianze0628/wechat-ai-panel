@@ -42,6 +42,7 @@ def register(app):
                 "astrbot_data_dir": CONFIG["astrbot_data_dir"],
                 "cmd_config": CONFIG["astrbot"].get("cmd_config", ""),
                 "cmd_config_mtime": _file_mtime(CONFIG["astrbot"].get("cmd_config", "")),
+                "port": CONFIG.get("port", 8080),
             },
         }
 

@@ -24,6 +24,9 @@ def _atomic_write(path: str, content: str, encoding: str = "utf-8-sig"):
 
 
 def _backup_raw_file(path: str):
+    """备份原始配置文件 (设置页可关: backup_enabled=false 时跳过备份, 返回 None)"""
+    if not CONFIG.get("backup_enabled", True):
+        return None
     try:
         if not os.path.isfile(path):
             return None
@@ -274,7 +277,8 @@ def _hash_name_py(s):
 
 def whitelist_contacts():
     """微信联系人/群列表 (wechat + 补全历史聊过的群 + 标记 chatted)"""
-    from .logs_core import history_room_names, _chat_names
+    from .logs_core import history_room_infos, _chat_names
+    import time as _time
     data = _astrbot_api("contacts")
     if not isinstance(data, dict):
         data = {}
@@ -282,12 +286,25 @@ def whitelist_contacts():
         return {"ok": False, "message": data["error"], "contacts": [], "rooms": []}
     base_rooms = data.get("rooms") or []
     base_contacts = data.get("contacts") or []
-    hist_rooms = history_room_names()
+    now = _time.time()
+    # wechat4u 只能同步"有消息进来的群", 其余群在消息记录里但当前 session 没加载。
+    # 近期(默认 3 天)有消息的群 = 仍在群里的活跃群 (只标 fromUnsynced, 不标历史)
+    # 更早的群 = 可能已退出 (标 fromHist 历史)
+    hist_rooms = history_room_infos()
     known = {str(r.get("hashId")) for r in base_rooms}
-    for name in hist_rooms:
+    for item in hist_rooms:
+        name = item["name"]
         h = _hash_name_py(name)
-        if str(h) not in known:
-            base_rooms.append({"name": name, "hashId": h, "id": name, "fromHist": True})
+        if str(h) in known:
+            continue
+        last_active = item.get("lastActive") or 0
+        is_recent = (now - last_active) <= 3 * 86400
+        base_rooms.append({
+            "name": name, "hashId": h, "id": name,
+            "fromHist": not is_recent,
+            "fromUnsynced": is_recent,
+            "lastActive": last_active,
+        })
     # 标记联系人是否在消息记录中出现过 (聊过=真实互动)
     chatted_names = _chat_names()
     for c in base_contacts:
@@ -299,6 +316,33 @@ def whitelist_contacts():
         rm = r.get("name") or ""
         if rm:
             r["activeNames"] = room_active_members(rm)
+    # 群成员名合并: bot 侧 members 常缺名 ("未知名成员"), 用消息记录真实昵称补齐,
+    # 构造 memberList = 真实名去重后的完整成员列表 (带 hashId, 可直接勾选进白名单)
+    for r in base_rooms:
+        rm = r.get("name") or ""
+        if not rm:
+            continue
+        existing = {}
+        for m in r.get("members") or []:
+            mn = (m.get("name") or "").strip()
+            if not mn or mn == "未知名成员":
+                continue
+            existing[mn] = {"rawId": m.get("rawId") or mn, "name": mn, "hashId": _hash_name_py(mn), "source": "wechat"}
+        for n in r.get("activeNames") or []:
+            n = (n or "").strip()
+            if n and n not in existing and n != rm:
+                existing[n] = {"rawId": n, "name": n, "hashId": _hash_name_py(n), "source": "messages"}
+        r["memberList"] = list(existing.values())
+        # 统计拿不到名字的 bot 侧成员数 (前端折叠显示)
+        r["unknownMemberCount"] = sum(
+            1 for m in (r.get("members") or []) if not (m.get("name") or "").strip() or (m.get("name") or "").strip() == "未知名成员"
+        )
+        # 人数兜底: wechat4u 未同步的群 (fromUnsynced) 没有 memberCount/members,
+        # 用 memberList(消息记录真实名) + 未知名成员数 估算总人数, 避免显示 0
+        total = len(r["memberList"]) + r["unknownMemberCount"]
+        cur = r.get("memberCount")
+        if not isinstance(cur, int) or cur <= 0:
+            r["memberCount"] = total
     return {"ok": True, "contacts": base_contacts, "rooms": base_rooms}
 
 
@@ -338,5 +382,8 @@ def whitelist_get():
     return data
 
 
-def whitelist_save(chat_ids, admin_ids):
-    return _astrbot_api("whitelist", method="POST", payload={"chatIds": chat_ids, "adminIds": admin_ids})
+def whitelist_save(chat_ids, admin_ids, excluded_group_members=None):
+    payload = {"chatIds": chat_ids, "adminIds": admin_ids}
+    if excluded_group_members:
+        payload["excludedGroupMembers"] = excluded_group_members
+    return _astrbot_api("whitelist", method="POST", payload=payload)

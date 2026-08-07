@@ -17,6 +17,7 @@ import {
   Settings2,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import SuccessModal from '../components/ui/SuccessModal'
 import type { EnvStatus } from '../types/api'
 
 type StepStatus = 'pending' | 'done' | 'error'
@@ -427,46 +428,22 @@ export default function OnboardingPage() {
       </div>
 
       {/* 安装完成弹窗: 显示安装位置 */}
-      {showInstalledDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInstalledDialog(false)}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}
-            className="glass-panel w-full max-w-[440px] p-6"
-          >
-            <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-foreground">
-              <CircleCheck size={18} className="text-success" />
-              安装完成
+      <SuccessModal open={showInstalledDialog} onClose={() => setShowInstalledDialog(false)} title="安装完成">
+        <p className="mb-3 text-[13px] text-foreground-muted">依赖已安装成功，组件安装位置如下：</p>
+        <div className="space-y-2 rounded-xl border border-border bg-surface-solid p-3.5 text-[12.5px]">
+          {[
+            ['系统平台', installState.platform ?? installPlatform],
+            ['wechat-bot', installState.install_where?.wechat_dir || wechatDir || '（默认路径）'],
+            ['AstrBot', installState.install_where?.astrbot_dir || astrbotDir || '（默认路径）'],
+            ['AstrBot 可执行', installState.install_where?.astrbot_exe || '—'],
+          ].map(([k, v]) => (
+            <div key={k} className="flex gap-3">
+              <span className="w-28 shrink-0 text-foreground-muted/70">{k}</span>
+              <span className="mono min-w-0 flex-1 break-all text-foreground">{v}</span>
             </div>
-            <p className="mb-3 text-[13px] text-foreground-muted">
-              依赖已安装成功，组件安装位置如下：
-            </p>
-            <div className="space-y-2 rounded-xl border border-border bg-surface-solid p-3.5 text-[12.5px]">
-              {[
-                ['系统平台', installState.platform ?? installPlatform],
-                ['wechat-bot', installState.install_where?.wechat_dir || wechatDir || '（默认路径）'],
-                ['AstrBot', installState.install_where?.astrbot_dir || astrbotDir || '（默认路径）'],
-                ['AstrBot 可执行', installState.install_where?.astrbot_exe || '—'],
-              ].map(([k, v]) => (
-                <div key={k} className="flex gap-3">
-                  <span className="w-28 shrink-0 text-foreground-muted/70">{k}</span>
-                  <span className="mono min-w-0 flex-1 break-all text-foreground">{v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setShowInstalledDialog(false)}
-                className="rounded-lg bg-primary-500 px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-              >
-                知道了
-              </button>
-            </div>
-          </motion.div>
+          ))}
         </div>
-      )}
+      </SuccessModal>
 
       {/* OneBot 未配置提示 */}
       {!configured && (

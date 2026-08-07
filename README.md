@@ -1,4 +1,9 @@
-# 微信 AI 机器人管理面板
+# 🤖 微信 AI 机器人管理面板
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](#license)
 
 一键部署管理面板, 负责: 环境检测 → 自动安装 → 服务启动 → 扫码登录 → 实时日志 → AstrBot 一键配置与凭据展示。
 
@@ -111,3 +116,15 @@ pyinstaller -F -w -n wechat-ai-panel --add-data "static;static" --add-data "conf
 - wechat-bot 的 .env 白名单修改后需重启 wechat-bot
 - 服务状态"运行中"表示端口已监听; 健康检查通过才代表应用层可用
 - 管理面板是辅助工具, 不取代 AstrBot WebUI 的模型配置
+
+## 关联项目
+
+| 项目 | 说明 |
+|---|---|
+| [wechat-ai-panel-go](https://github.com/qianze0628/wechat-ai-panel-go) | 本项目的 Go 原生重构版 (单文件可执行, 端口 8081) |
+| [wechat-bot-optimized](https://github.com/qianze0628/wechat-bot-optimized) | Wechaty + wechat4u 微信桥接器 (端口 6189) |
+| [AstrBot](https://github.com/Soulter/AstrBot) | AI 对话引擎 (WebUI 6185 / OneBot WS 20129) |
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 qianze0628

@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import ConfirmModal from '../components/ui/ConfirmModal'
 import type { ServicesStatus } from '../types/api'
 
 type Act = 'start' | 'stop' | 'restart'
@@ -140,50 +141,27 @@ export default function ServicesPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-5">
       {/* 危险操作确认弹窗 */}
-      {confirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setConfirm(null)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}
-            className="glass-panel w-full max-w-[380px] p-5"
-          >
-            <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-foreground">
-              <TriangleAlert size={18} className="text-danger" />
-              确认操作
-            </div>
-            <p className="text-[13px] text-foreground-muted">
-              确定要 <span className="font-semibold text-danger">{actLabel(confirm.act)}</span>{' '}
-              <span className="font-semibold text-foreground">{serviceList.find((s) => s.key === confirm.key)?.name}</span>{' '}
-              吗？{confirm.act === 'stop' && ' 该操作会中断当前服务。'}
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => setConfirm(null)}
-                className="flex-1 rounded-lg border border-border px-3 py-2 text-[13px] text-foreground-muted hover:bg-surface-solid"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  const meta = serviceList.find((s) => s.key === confirm.key)
-                  if (meta) doAction(meta.key, meta.name, confirm.act)
-                }}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold text-white ${
-                  confirm.act === 'stop' ? 'bg-danger' : 'bg-primary-500'
-                }`}
-              >
-                {busySvc ? <Loader2 size={14} className="animate-spin" /> : null}
-                确认{actLabel(confirm.act)}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        confirmText={`确认${confirm ? actLabel(confirm.act) : ''}`}
+        danger={confirm?.act === 'stop'}
+        busy={!!busySvc}
+        onConfirm={() => {
+          const meta = serviceList.find((s) => s.key === confirm?.key)
+          if (meta) doAction(meta.key, meta.name, confirm!.act)
+        }}
+      >
+        {confirm && (
+          <>
+            确定要 <span className="font-semibold text-danger">{actLabel(confirm.act)}</span>{' '}
+            <span className="font-semibold text-foreground">
+              {serviceList.find((s) => s.key === confirm.key)?.name}
+            </span>{' '}
+            吗？{confirm.act === 'stop' && ' 该操作会中断当前服务。'}
+          </>
+        )}
+      </ConfirmModal>
 
       {/* 页面标题 */}
       <div>

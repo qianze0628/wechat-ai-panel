@@ -21,6 +21,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import SuccessModal from '../components/ui/SuccessModal'
 import type { ServiceInfo, StartStep } from '../types/api'
 
 // ===== 状态 Badge =====
@@ -520,22 +521,9 @@ export default function OverviewPage() {
       )}
 
       {/* 安装完成弹窗 */}
-      {showInstalledDialog && installedWhere && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowInstalledDialog(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}
-            className="glass-panel w-full max-w-[440px] p-6"
-          >
-            <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-foreground">
-              <CircleCheck size={18} className="text-success" />
-              安装完成
-            </div>
+      <SuccessModal open={showInstalledDialog && !!installedWhere} onClose={() => setShowInstalledDialog(false)} title="安装完成">
+        {installedWhere && (
+          <>
             <p className="mb-3 text-[13px] text-foreground-muted">组件安装/检查完成，位置如下：</p>
             <div className="space-y-2 rounded-xl border border-border bg-surface-solid p-3.5 text-[12.5px]">
               {[
@@ -549,17 +537,9 @@ export default function OverviewPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setShowInstalledDialog(false)}
-                className="rounded-lg bg-primary-500 px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-              >
-                知道了
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+          </>
+        )}
+      </SuccessModal>
     </div>
   )
 }

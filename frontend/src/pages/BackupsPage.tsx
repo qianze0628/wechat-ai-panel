@@ -13,6 +13,7 @@ import {
   HardDrive,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import ConfirmModal from '../components/ui/ConfirmModal'
 import type { BackupItem } from '../types/api'
 
 function formatSize(bytes: number) {
@@ -62,23 +63,19 @@ export default function BackupsPage() {
   return (
     <div className="mx-auto max-w-[1100px] space-y-5">
       {/* 确认弹窗 */}
-      {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirm(null)}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}
-            className="glass-panel w-full max-w-[400px] p-5"
-          >
-            <div className="mb-3 flex items-center gap-2 text-[15px] font-bold text-foreground">
-              <TriangleAlert size={18} className="text-danger" />
-              确认恢复配置
-            </div>
-            <p className="text-[13px] text-foreground-muted">
-              将把 AstrBot 配置恢复为备份 <span className="mono font-semibold text-foreground">{confirm.time}</span>{' '}
-              的内容 (当前配置会先备份)，并重启 AstrBot。
-            </p>
+      <ConfirmModal
+        open={!!confirm}
+        onClose={() => setConfirm(null)}
+        title="确认恢复配置"
+        confirmText={restoring ? '恢复中…' : '确认恢复'}
+        busy={restoring}
+        onConfirm={() => confirm && doRestore(confirm)}
+      >
+        {confirm && (
+          <>
+            将把 AstrBot 配置恢复为备份{' '}
+            <span className="mono font-semibold text-foreground">{confirm.time}</span> 的内容 (当前配置会先备份)，
+            并重启 AstrBot。
             <div className="mt-2 rounded-lg bg-surface-solid p-3 text-[12px]">
               <div className="flex justify-between text-foreground-muted">
                 <span>大小</span>
@@ -89,25 +86,9 @@ export default function BackupsPage() {
                 <span className="mono break-all text-[11px] text-foreground-muted/90">{confirm.path}</span>
               </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => setConfirm(null)}
-                className="flex-1 rounded-lg border border-border px-3 py-2 text-[13px] text-foreground-muted hover:bg-surface-solid"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => doRestore(confirm)}
-                disabled={restoring}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger px-3 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {restoring ? <Loader2 size={14} className="animate-spin" /> : <ArchiveRestore size={14} />}
-                {restoring ? '恢复中…' : '确认恢复'}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+          </>
+        )}
+      </ConfirmModal>
 
       {/* 页面标题 */}
       <div className="flex flex-wrap items-center justify-between gap-2">

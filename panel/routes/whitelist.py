@@ -61,4 +61,5 @@ def register(app):
             _bad("请求体必须是对象 {chatIds, adminIds}")
         chat_ids = [str(x) for x in body.get("chatIds", [])]
         admin_ids = [str(x) for x in body.get("adminIds", [])]
-        return whitelist_save(chat_ids, admin_ids)
+        excl = body.get("excludedGroupMembers")
+        return whitelist_save(chat_ids, admin_ids, excl)

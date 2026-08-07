@@ -24,14 +24,17 @@ def _detect_platform():
     return "linux"
 
 
-def _plan_install_tasks(platform, wechat_dir, astrbot_root):
+def _plan_install_tasks(platform, wechat_dir, astrbot_root, wechat_repo=""):
     tasks = []
     pkg = os.path.join(wechat_dir, "package.json")
     node_modules = os.path.isdir(os.path.join(wechat_dir, "node_modules"))
     if os.path.isfile(pkg) and not node_modules:
         tasks.append({"label": f"npm install (wechat-bot @ {wechat_dir})", "kind": "npm", "target": wechat_dir})
     elif not os.path.isfile(pkg):
-        tasks.append({"label": f"wechat-bot 源码缺失: {wechat_dir} (请先克隆/放置项目)", "kind": "warn", "target": wechat_dir})
+        if wechat_repo:
+            tasks.append({"label": f"git clone {wechat_repo} → {wechat_dir}", "kind": "clone", "target": wechat_dir, "repo": wechat_repo})
+        else:
+            tasks.append({"label": f"wechat-bot 源码缺失: {wechat_dir} (请先克隆/放置项目)", "kind": "warn", "target": wechat_dir})
     astrbot_exe = _which("astrbot")
     if not astrbot_exe:
         tasks.append({"label": "uv tool install astrbot", "kind": "uv", "target": astrbot_root})
@@ -69,6 +72,33 @@ def _run_install(tasks, platform, wechat_dir, astrbot_root):
                 if r.returncode != 0:
                     ok_all = False
                 _INSTALL_STATE["logs"].append(f"[{platform}] [done] {task['label']} exit={r.returncode}\n{tail}")
+            elif kind == "clone":
+                # 从配置/参数指定的仓库克隆 wechat-bot 源码 (优化版), 克隆后自动 npm install
+                try:
+                    os.makedirs(task["target"], exist_ok=True)
+                except Exception:
+                    pass
+                r = subprocess.run(
+                    ["git", "clone", "--depth", "1", task["repo"], task["target"]],
+                    capture_output=True, text=True, timeout=900,
+                    creationflags=CREATE_NO_WINDOW,
+                )
+                tail = (r.stdout or "")[-800:] + "\n" + (r.stderr or "")[-800:]
+                _INSTALL_STATE["logs"].append(f"[{platform}] [done] {task['label']} exit={r.returncode}\n{tail}")
+                if r.returncode != 0:
+                    ok_all = False
+                else:
+                    # 克隆成功后补 npm install (源码就绪)
+                    _INSTALL_STATE["logs"].append(f"[{platform}] [start] npm install (wechat-bot)")
+                    r2 = subprocess.run(
+                        ["npm", "install"], cwd=task["target"],
+                        capture_output=True, text=True, timeout=600,
+                        creationflags=CREATE_NO_WINDOW,
+                    )
+                    tail2 = (r2.stdout or "")[-800:] + "\n" + (r2.stderr or "")[-800:]
+                    _INSTALL_STATE["logs"].append(f"[{platform}] [done] npm install exit={r2.returncode}\n{tail2}")
+                    if r2.returncode != 0:
+                        ok_all = False
             elif kind == "warn":
                 _INSTALL_STATE["logs"].append(f"[{platform}] [warn] {task['label']}")
         except Exception as e:
@@ -92,6 +122,8 @@ def register(app):
         platform = _detect_platform()
         wechat_dir = CONFIG["wechat_bot_dir"]
         astrbot_root = CONFIG["astrbot_root"]
+        # wechat-bot 源码仓库 (优化版), 缺源码且给了 repo 时自动 git clone
+        wechat_repo = CONFIG.get("wechat_bot_repo", "") or ""
         try:
             body = await request.json()
             if isinstance(body, dict):
@@ -101,11 +133,13 @@ def register(app):
                     wechat_dir = str(body["wechat_dir"]).replace("\\", "/")
                 if body.get("astrbot_dir"):
                     astrbot_root = str(body["astrbot_dir"]).replace("\\", "/")
+                if body.get("wechat_repo"):
+                    wechat_repo = str(body["wechat_repo"]).strip()
         except Exception:
             pass
         if platform not in ("windows", "mac", "linux"):
             return JSONResponse({"ok": False, "message": f"未知平台: {platform} (应为 windows/mac/linux)"}, status_code=400)
-        tasks = _plan_install_tasks(platform, wechat_dir, astrbot_root)
+        tasks = _plan_install_tasks(platform, wechat_dir, astrbot_root, wechat_repo)
         if not tasks:
             return {
                 "ok": True, "message": "所有组件已就绪, 无需安装", "tasks": [], "platform": platform,

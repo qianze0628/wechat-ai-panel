@@ -1,6 +1,7 @@
-// NapCat Pink Glass 外壳: 毛玻璃侧边栏(spring 折叠) + 浮动顶栏 + 光斑背景
+// NapCat Pink Glass 外壳: 毛玻璃侧边栏(spring 折叠) + 浮动顶栏 + 光斑背景 + 页面切换动画
 import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { PanelLeftClose, PanelLeftOpen, ServerCog, Sun, Moon } from 'lucide-react'
 import { NAV_ITEMS, findNavItem } from '../../app/navigation'
 import { useTheme } from '../../app/theme'
@@ -138,8 +139,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* 内容区 */}
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        {/* 内容区: 路由切换 spring 过渡 */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          {/* 路由切换入场动画: 不用 AnimatePresence mode=wait (会等旧组件退出后 delay 新组件, 个别浏览器可能卡白屏)。
+              这里只做入场动画, 新路由立即渲染, 确保切换永远不卡 */}
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="h-full"
+          >
+            {children}
+          </motion.div>
+        </main>
       </div>
     </div>
   )

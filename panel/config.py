@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     "astrbot_data_dir": "C:/Users/YMB/data",
     "qr_server_script": "C:/Users/YMB/Desktop/wechat/qr-server.js",
     "wechat_bot_serve": "ChatGPT",
+    "wechat_bot_repo": "",
     "logs": {
         "astrbot_stdout": "logs/astrbot_boot.log",
         "astrbot_stderr": "logs/astrbot_boot_err.log",

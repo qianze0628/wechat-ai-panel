@@ -145,6 +145,15 @@ def history_room_names(active_days: int = 30):
 
     仅补最近 active_days 天内有消息的群, 避免已退出的群长期显示.
     """
+    return [x["name"] for x in history_room_infos(active_days)]
+
+
+def history_room_infos(active_days: int = 30):
+    """从 messages.jsonl 提取历史聊过的群 (带条数 + 最后一次消息时间).
+
+    返回 [{name, count, lastActive}] 按条数降序。
+    仅包含最近 active_days 天内有消息的群, 避免已退出的群长期显示。
+    """
     import time as _time
     path = _messages_path()
     if not os.path.isfile(path):
@@ -178,8 +187,8 @@ def history_room_names(active_days: int = 30):
         return []
     # 过滤: 只保留最近 active_days 天内有消息的群
     out = []
-    for n, _ in sorted(counts.items(), key=lambda kv: -kv[1]):
+    for n, cnt in sorted(counts.items(), key=lambda kv: -kv[1]):
         t = last_ts.get(n, 0)
         if not t or (now - t) <= active_days * 86400:
-            out.append(n)
+            out.append({"name": n, "count": cnt, "lastActive": t})
     return out

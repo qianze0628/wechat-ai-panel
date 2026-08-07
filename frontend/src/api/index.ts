@@ -23,6 +23,22 @@ export const authApi = {
   login: (password: string) => api.post<{ ok: boolean; message: string }>('/api/auth/login', { password }),
 }
 
+export interface PanelSettings {
+  ok: boolean
+  auth_enabled: boolean
+  backup_enabled: boolean
+  config_path: string
+}
+
+export const settingsApi = {
+  get: () => api.get<PanelSettings>('/api/settings'),
+  save: (payload: { panel_password?: string; backup_enabled?: boolean }) =>
+    api.post<{ ok: boolean; message: string; changes: string[]; auth_changed?: boolean; auth_disabled?: boolean }>(
+      '/api/settings',
+      payload,
+    ),
+}
+
 export const panelApi = {
   status: () => api.get<PanelStatus>('/api/status'),
   env: () => api.get<EnvStatus>('/api/env'),
@@ -53,7 +69,11 @@ export const panelApi = {
   system: () => api.get<SystemStatus>('/api/system'),
   whitelistContacts: () => api.get<WhitelistContacts>('/api/whitelist/contacts'),
   whitelistGet: () => api.get<WhitelistState>('/api/whitelist'),
-  whitelistSave: (payload: { chatIds: string[]; adminIds: string[] }) =>
+  whitelistSave: (payload: {
+    chatIds: string[]
+    adminIds: string[]
+    excludedGroupMembers?: Record<string, string[]>
+  }) =>
     api.post<{ status: string; message: string; chatIds: string[]; adminIds: string[] }>('/api/whitelist', payload),
   whitelistSuper: (superAdminIds: string[]) =>
     api.post<{ ok: boolean; message: string; superAdminIds: string[] }>('/api/whitelist/super', { superAdminIds }),

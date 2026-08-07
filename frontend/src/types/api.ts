@@ -43,6 +43,7 @@ export interface PanelStatus {
     astrbot_data_dir: string
     cmd_config: string
     cmd_config_mtime: string | null
+    port?: number
   }
 }
 
@@ -167,6 +168,7 @@ export interface WhitelistRoomMember {
   rawId: string
   name: string
   hashId: number
+  source?: string
 }
 
 export interface WhitelistRoom {
@@ -175,6 +177,8 @@ export interface WhitelistRoom {
   id?: string
   memberCount?: number
   members?: WhitelistRoomMember[]
+  memberList?: WhitelistRoomMember[]
+  unknownMemberCount?: number
   fromHist?: boolean
   activeNames?: string[]
 }
@@ -204,4 +208,8 @@ export interface WhitelistState {
   nameMap?: Record<string, string>
   chatNames?: string[]
   adminNames?: string[]
+  /** 群内屏蔽成员: {群hashId: [成员hashId]} —— 取消勾选的成员群里/私聊都不回复 */
+  excludedGroupMembers?: Record<string, string[]>
+  /** 群内屏蔽成员(按名字, 备选回显): {群名: [成员名]} */
+  excludedGroupNames?: Record<string, string[]>
 }
