@@ -117,12 +117,18 @@ def _chat_names():
     return names
 
 
-def history_room_names():
-    """从 messages.jsonl 提取历史聊过的群名 (带条数排序)"""
+def history_room_names(active_days: int = 30):
+    """从 messages.jsonl 提取历史聊过的群名 (带条数排序).
+
+    仅补最近 active_days 天内有消息的群, 避免已退出的群长期显示.
+    """
+    import time as _time
     path = _messages_path()
     if not os.path.isfile(path):
         return []
     counts = {}
+    last_ts = {}
+    now = _time.time()
     try:
         with open(path, "r", encoding="utf-8") as f:
             for line in f:
@@ -134,6 +140,23 @@ def history_room_names():
                     rm = (m.get("roomName") or "").strip()
                     if rm:
                         counts[rm] = counts.get(rm, 0) + 1
+                        ts = m.get("timestamp") or ""
+                        if ts:
+                            # ISO 时间 → epoch (容错)
+                            try:
+                                import datetime
+                                dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                                ep = dt.timestamp()
+                                if ep > last_ts.get(rm, 0):
+                                    last_ts[rm] = ep
+                            except Exception:
+                                pass
     except Exception:
         return []
-    return [n for n, _ in sorted(counts.items(), key=lambda kv: -kv[1])]
+    # 过滤: 只保留最近 active_days 天内有消息的群
+    out = []
+    for n, _ in sorted(counts.items(), key=lambda kv: -kv[1]):
+        t = last_ts.get(n, 0)
+        if not t or (now - t) <= active_days * 86400:
+            out.append(n)
+    return out

@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== NapCat Pink Glass 主题 Token ===== */
+:root,
+[data-theme='light'] {
+  --primary-50: #fff0f5;
+  --primary-100: #ffe4e9;
+  --primary-200: #ffcdd9;
+  --primary-300: #ff9eb5;
+  --primary-400: #ff7fac;
+  --primary-500: #f33b7c;
+  --primary-600: #c92462;
+
+  --secondary-100: #d7f0f8;
+  --secondary-300: #88c0d0;
+  --secondary-500: #4c8dae;
+
+  --background: #fff9fb;
+  --background-alt: #f6f5ff;
+  --foreground: #2f2630;
+  --foreground-muted: #5f5663;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --border: rgba(255, 127, 172, 0.2);
+  --danger: #db3694;
+  --success: #3baa78;
+  --warning: #e9a23b;
+
+  /* 顶栏徽标与图标在浅色玻璃上的可读对比度 */
+  --topbar-muted: #6a5f6e;
+  --topbar-icon: #5f5663;
+}
+
+[data-theme='dark'] {
+  --primary-50: #310413;
+  --primary-100: #610726;
+  --primary-200: #920b3a;
+  --primary-300: #c20e4d;
+  --primary-400: #f31260;
+  --primary-500: #f54180;
+  --primary-600: #f871a0;
+
+  --secondary-100: #404f5c;
+  --secondary-300: #88c0d0;
+  --secondary-500: #4c8dae;
+
+  --background: #1f1d22;
+  --background-alt: #28242c;
+  --foreground: #fceff5;
+  --foreground-muted: #bfafba;
+  --surface: rgba(30, 27, 34, 0.62);
+  --surface-solid: #2a2630;
+  --border: rgba(255, 255, 255, 0.1);
+  --danger: #db3694;
+  --success: #52c58a;
+  --warning: #efb95d;
+
+  --topbar-muted: #b3a6b0;
+  --topbar-icon: #c9bcc4;
+}
+
+/* ===== 映射到 Tailwind 语义色 (让 tailwind 类可用) ===== */
+@layer base {
+  :root {
+    /* Tailwind theme 颜色映射 */
+    --tw-color-primary: var(--primary-500);
+  }
+}
+
+@tailwind utilities;
+
+/* ===== 基础 ===== */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  color: var(--foreground);
+  font-family: 'Nunito', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+code,
+pre,
+.mono {
+  font-family: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', monospace;
+}
+
+/* ===== 滚动条 (细粉色) ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--primary-200);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-300);
+}
+
+/* ===== 文本选区 ===== */
+::selection {
+  background: #ffcdba;
+  color: var(--foreground);
+}
+
+/* ===== 毛玻璃卡片 ===== */
+.glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(155, 109, 136, 0.1);
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+  border-radius: 16px;
+}
+[data-theme='dark'] .glass-panel {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+}
+
+/* ===== 顶栏辅助类 (浅色玻璃上的可读性) ===== */
+.topbar-status-text {
+  color: var(--topbar-muted);
+}
+[data-theme='dark'] .topbar-status-text {
+  color: var(--topbar-muted);
+}
+.topbar-icon-btn {
+  color: var(--topbar-icon);
+  border-color: var(--border);
+}
+.topbar-icon-btn:hover {
+  color: var(--primary-500);
+  border-color: var(--primary-300);
+}
+
+/* ===== spring 弹性侧边栏 (stiffness 150 / damping 15) ===== */
+@keyframes sidebar-spring-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.sidebar-collapse-enter {
+  animation: sidebar-spring-in 240ms ease-out;
+}
+
+/* NavLink 激活指示点: 垂直居中于行, 不随文字平移, 任何折叠状态都对齐 */
+.sidebar-nav-indicator {
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  width: 12px;
+}
+
+/* ===== 焦点可见性 ===== */
+:focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+}
+
+/* ===== 减少动效偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
