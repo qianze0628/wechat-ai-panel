@@ -46,6 +46,34 @@ export const autostartApi = {
     api.post<{ ok: boolean; enabled: boolean; message: string }>('/api/autostart', { enabled }),
 }
 
+// 更新检测 (GitHub latest + IP 判断国内镜像)
+export interface ReleaseInfo {
+  tag_name: string
+  name: string
+  published_at: string
+  body: string
+  html_url: string
+  assets?: { name: string; size: number; browser_download_url: string }[]
+}
+export interface UpdateCheckResult {
+  has_update: boolean
+  current_version: string
+  latest?: ReleaseInfo
+  message: string
+}
+export interface DownloadInfo {
+  region: string
+  use_mirror: boolean
+  mirror_prefix: string
+  direct_url: string
+  final_url: string
+}
+export const updateApi = {
+  check: (version: string) => api.get<UpdateCheckResult>(`/api/update-check?version=${encodeURIComponent(version)}`),
+  downloadInfo: (asset: string) =>
+    api.get<DownloadInfo>(`/api/update/download-info?asset=${encodeURIComponent(asset)}`),
+}
+
 export const panelApi = {
   status: () => api.get<PanelStatus>('/api/status'),
   env: () => api.get<EnvStatus>('/api/env'),

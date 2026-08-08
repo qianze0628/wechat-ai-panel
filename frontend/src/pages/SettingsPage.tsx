@@ -13,8 +13,10 @@ import {
   Lock,
   Sparkles,
   Power,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react'
-import { panelApi, authApi, settingsApi, autostartApi } from '../api'
+import { panelApi, authApi, settingsApi, autostartApi, updateApi } from '../api'
 import { useTheme, ACCENT_PRESETS } from '../app/theme'
 import { toast } from '../app/toast'
 import Toggle from '../components/ui/Toggle'
@@ -59,6 +61,32 @@ export default function SettingsPage() {
       refetchAutostart()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '操作失败')
+    }
+  }
+
+  // 更新检测 (GitHub latest + IP 判断国内镜像)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<Awaited<ReturnType<typeof updateApi.check>> | null>(null)
+  const [, setDownloadInfo] = useState<Awaited<ReturnType<typeof updateApi.downloadInfo>> | null>(null)
+  async function checkUpdate() {
+    if (checkingUpdate) return
+    setCheckingUpdate(true)
+    setUpdateInfo(null)
+    try {
+      const ver = (data as { version?: string })?.version ?? 'v0.1.9'
+      const info = await updateApi.check(ver)
+      setUpdateInfo(info)
+      if (!info.has_update && info.message) toast.success(info.message)
+      // 若有新版本, 预取下载信息 (体现国内镜像判断)
+      if (info.has_update && info.latest?.assets?.length) {
+        const asset = info.latest.assets[0].name
+        const dl = await updateApi.downloadInfo(asset)
+        setDownloadInfo(dl)
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '检查更新失败')
+    } finally {
+      setCheckingUpdate(false)
     }
   }
 
@@ -357,6 +385,49 @@ export default function SettingsPage() {
           <div className="text-[12px] text-foreground-muted">
             管理面板 · 微信 AI 机器人「得 Talk-AI」v2.6 ·{' '}
             {(data as { version?: string })?.version?.startsWith('go') ? 'Go 后端' : 'FastAPI 后端'}
+          </div>
+
+          {/* 检查更新 */}
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={checkUpdate}
+                disabled={checkingUpdate}
+                className="flex items-center gap-1.5 rounded-lg border border-primary-300 px-3 py-1.5 text-[12.5px] font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:opacity-40"
+              >
+                {checkingUpdate ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                {checkingUpdate ? '检查中…' : '检查更新'}
+              </button>
+              {updateInfo?.latest && (
+                <span className="text-[12.5px] text-foreground-muted">
+                  最新版本 {updateInfo.latest.tag_name}
+                  {updateInfo.has_update ? ' · 有新版本' : ' · 已是最新'}
+                </span>
+              )}
+            </div>
+            {updateInfo?.latest && (
+              <div className="mt-2 max-h-44 overflow-y-auto rounded-lg border border-border bg-surface-solid p-3 text-[12px] leading-relaxed text-foreground-muted">
+                <div className="mb-1 font-semibold text-foreground">
+                  {updateInfo.latest.name || updateInfo.latest.tag_name}
+                  {updateInfo.latest.published_at && (
+                    <span className="ml-2 font-normal text-foreground-muted/70">
+                      {updateInfo.latest.published_at.slice(0, 10)}
+                    </span>
+                  )}
+                </div>
+                <div className="whitespace-pre-wrap">{updateInfo.latest.body || '暂无更新日志'}</div>
+              </div>
+            )}
+            {updateInfo?.latest && (
+              <a
+                href={updateInfo.latest.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-primary-500 hover:text-primary-600"
+              >
+                <ExternalLink size={12} /> 前往 GitHub 下载
+              </a>
+            )}
           </div>
         </div>
       </Section>
