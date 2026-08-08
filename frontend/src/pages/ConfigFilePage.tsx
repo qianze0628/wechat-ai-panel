@@ -1,5 +1,5 @@
 // 配置文件 (仿 AstrBot 配置文件页): 查看/编辑 AstrBot cmd_config.json, 自动备份
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Save, FileCode2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
@@ -10,7 +10,22 @@ export default function ConfigFilePage() {
     queryKey: ['cmd-config'],
     queryFn: () => api.get<{ ok: boolean; config: string; path: string }>('/api/cmd-config'),
   })
+  // 默认值: data 加载时用后端 JSON 填充 (首次加载显示全文, 不是空)
   const [text, setText] = useState('')
+  const [dirty, setDirty] = useState(false)
+
+  // data 首次到达或刷新时, 若用户未编辑, 同步填入 (格式化展示)
+  useEffect(() => {
+    if (data?.config && !dirty) {
+      try {
+        const parsed = JSON.parse(data.config)
+        setText(JSON.stringify(parsed, null, 2))
+      } catch {
+        setText(data.config)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -46,6 +61,7 @@ export default function ConfigFilePage() {
               value={text}
               onChange={(e) => {
                 setText(e.target.value)
+                setDirty(true)
                 setSaved(false)
               }}
               spellCheck={false}
@@ -57,7 +73,10 @@ export default function ConfigFilePage() {
           {/* 保存 + 刷新 */}
           <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => refetch()}
+              onClick={() => {
+                if (dirty && !window.confirm('有未保存的修改, 确定丢弃并重新加载?')) return
+                refetch()
+              }}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] text-foreground-muted hover:bg-surface-solid"
             >
               <RefreshCw size={13} /> 重新加载

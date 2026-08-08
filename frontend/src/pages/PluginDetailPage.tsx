@@ -85,6 +85,14 @@ export default function PluginDetailPage() {
 
   const schema = confData?.schema as Record<string, SchemaSection> | undefined
   const schemaSections = useMemo(() => Object.entries(schema ?? {}), [schema])
+  // schema 声明过的所有键 (保存时只保留这些)
+  const schemaKeys = useMemo(() => {
+    const set = new Set<string>()
+    for (const section of schemaSections) {
+      for (const k of Object.keys(section[1]?.items ?? {})) set.add(k)
+    }
+    return set
+  }, [schemaSections])
 
   if (confLoading || !plugin) {
     return (
@@ -97,7 +105,12 @@ export default function PluginDetailPage() {
   async function saveConfig() {
     setSaving(true)
     try {
-      const r = await pluginCenterApi.saveConfig(pluginId, config)
+      // 清掉空串数字键 (避免 config.json 出现 "key": "")
+      const cleaned: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(config)) {
+        if (v !== '') cleaned[k] = v
+      }
+      const r = await pluginCenterApi.saveConfig(pluginId, cleaned)
       toast.success(r.message || '配置已保存')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '保存失败')
@@ -116,9 +129,15 @@ export default function PluginDetailPage() {
     }
   }
 
-  // 设置值 (支持分组路径: "basic.group_list")
+  // 设置值: 移除 schema 未声明的键 (schema 变更后旧键不残留)
   function setValue(key: string, v: unknown) {
-    setConfig((prev) => ({ ...prev, [key]: v }))
+    setConfig((prev) => {
+      const next = { ...prev, [key]: v }
+      for (const k of Object.keys(next)) {
+        if (!schemaKeys.has(k)) delete next[k]
+      }
+      return next
+    })
   }
 
   function renderField(key: string, item: SchemaItem) {
@@ -160,13 +179,19 @@ export default function PluginDetailPage() {
         </select>
       )
     }
-    // int/float → 数字
+    // int/float → 数字 (空输入保持空, 保存时移除该键而非存 '')
     if (type === 'int' || type === 'float') {
       return (
         <input
           type="number"
           value={String(value ?? '')}
-          onChange={(e) => setValue(key, e.target.value === '' ? '' : Number(e.target.value))}
+          onChange={(e) => {
+            if (e.target.value === '') {
+              setValue(key, '') // 保存时过滤掉
+            } else {
+              setValue(key, Number(e.target.value))
+            }
+          }}
           className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
         />
       )

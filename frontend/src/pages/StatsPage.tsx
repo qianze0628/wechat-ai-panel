@@ -12,19 +12,24 @@ export default function StatsPage() {
   })
 
   const stats = useMemo(() => {
+    // 后端消息字段: {timestamp, type, typeName, isText, room: bool, contact, talker, receiver, self, text}
     const msgs = (data?.messages ?? []) as unknown as {
       text?: string
-      sender?: string
-      room?: string | boolean | null
+      talker?: string
+      contact?: string
+      receiver?: string
+      room?: boolean
       time?: string
     }[]
     const total = msgs.length
     const rooms = new Map<string, number>()
     const senders = new Map<string, number>()
     for (const m of msgs) {
-      const r = typeof m.room === 'string' && m.room ? m.room : '(私聊)'
+      // 会话名: contact 存在即群/联系人, room bool 勿当名字
+      const r = m.contact || (m.room ? '(群聊)' : '(私聊)')
       rooms.set(r, (rooms.get(r) ?? 0) + 1)
-      senders.set(m.sender ?? '?', (senders.get(m.sender ?? '?') ?? 0) + 1)
+      const sender = m.talker || m.receiver || '(未知)'
+      senders.set(sender, (senders.get(sender) ?? 0) + 1)
     }
     const topRooms = [...rooms.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
     const topSenders = [...senders.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -83,7 +88,7 @@ export default function StatsPage() {
               <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-solid">
                 <div
                   className="h-full rounded-full bg-primary-500"
-                  style={{ width: `${Math.min(100, (count / stats.total) * 100)}%` }}
+                  style={{ width: `${stats.total > 0 ? Math.min(100, (count / stats.total) * 100) : 0}%` }}
                 />
               </div>
             </div>
@@ -109,7 +114,7 @@ export default function StatsPage() {
               <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-solid">
                 <div
                   className="h-full rounded-full bg-success"
-                  style={{ width: `${Math.min(100, (count / stats.total) * 100)}%` }}
+                  style={{ width: `${stats.total > 0 ? Math.min(100, (count / stats.total) * 100) : 0}%` }}
                 />
               </div>
             </div>

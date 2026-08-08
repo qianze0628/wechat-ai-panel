@@ -1,6 +1,6 @@
 // 插件中心: 列出 AstrBot 全部插件 (元数据/连通状态/启禁用), 点击进入详情配置
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Blocks,
   Loader2,
@@ -14,6 +14,7 @@ import { pluginCenterApi, type AstrPlugin } from '../api'
 import { toast } from '../app/toast'
 
 export default function PluginCenterPage() {
+  const queryClient = useQueryClient()
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['plugin-center'],
     queryFn: pluginCenterApi.list,
@@ -24,6 +25,12 @@ export default function PluginCenterPage() {
     try {
       const r = await pluginCenterApi.toggle(p.id, !p.enabled)
       toast.success(r.message || '操作成功')
+      // 就地更新缓存, 避免 15s 轮询前点第二次误切换
+      queryClient.setQueryData<{ ok: boolean; plugins: AstrPlugin[] }>(['plugin-center'], (old) =>
+        old
+          ? { ...old, plugins: (old.plugins ?? []).map((pl) => (pl.id === p.id ? { ...pl, enabled: !p.enabled } : pl)) }
+          : old,
+      )
       refetch()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '操作失败')
