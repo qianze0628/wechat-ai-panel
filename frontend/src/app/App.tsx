@@ -12,9 +12,10 @@ import WhitelistPage from '../pages/WhitelistPage'
 import LogsPage from '../pages/LogsPage'
 import BackupsPage from '../pages/BackupsPage'
 import SettingsPage from '../pages/SettingsPage'
-import PluginPage from '../pages/PluginPage'
 import PluginCenterPage from '../pages/PluginCenterPage'
 import PluginDetailPage from '../pages/PluginDetailPage'
+import ConfigFilePage from '../pages/ConfigFilePage'
+import StatsPage from '../pages/StatsPage'
 
 type AuthState = 'loading' | 'ok' | 'need-auth'
 
@@ -69,7 +70,8 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/plugins" element={<PluginCenterPage />} />
         <Route path="/plugins/:id" element={<PluginDetailPage />} />
-        <Route path="/plugin/:id" element={<PluginPage />} />
+        <Route path="/config" element={<ConfigFilePage />} />
+        <Route path="/stats" element={<StatsPage />} />
         {/* 仅未知路径回退首页 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

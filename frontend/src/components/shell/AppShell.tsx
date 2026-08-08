@@ -3,9 +3,8 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PanelLeftClose, PanelLeftOpen, ServerCog, Sun, Moon } from 'lucide-react'
-import { NAV_ITEMS, findNavItem } from '../../app/navigation'
+import { navGroups, findNavItem } from '../../app/navigation'
 import { useTheme } from '../../app/theme'
-import { usePluginNavs } from '../../app/usePluginNavs'
 import PageBackground from './PageBackground'
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -13,8 +12,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
   const current = findNavItem(location.pathname)
   const { theme, toggleTheme } = useTheme()
-  const { pluginNavs } = usePluginNavs()
-
+  
   return (
     <div className="flex h-full gap-4 p-4">
       <PageBackground />
@@ -41,61 +39,44 @@ export default function AppShell({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {/* 导航菜单 */}
-        <nav className="mt-2 flex-1 space-y-1 px-2.5">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              title={item.label}
-              aria-label={item.label}
-              className={({ isActive }) =>
-                `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
-                  isActive
-                    ? 'translate-x-1 bg-primary-50 font-semibold text-primary-600'
-                    : 'text-foreground-muted hover:translate-x-1 hover:bg-primary-50/60 hover:text-foreground'
-                }`
-              }
-            >
-              <item.icon size={18} strokeWidth={2} className="shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-              <span
-                aria-hidden
-                className={`sidebar-nav-indicator absolute right-2 rounded-full bg-primary-500 transition-opacity duration-180 ${
-                  location.pathname === item.to ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            </NavLink>
-          ))}
-          {/* 插件导航 (动态, 来自 /api/plugins) */}
-          {pluginNavs.length > 0 && (
-            <>
+        {/* 导航菜单 (仿 AstrBot 分组) */}
+        <nav className="mt-2 flex-1 overflow-y-auto px-2.5">
+          {navGroups().map((g) => (
+            <div key={g.group} className="mb-1.5">
               {!collapsed && (
-                <div className="px-2.5 pt-2 text-[10.5px] font-semibold tracking-wide text-foreground-muted/60">
-                  插件
+                <div className="px-2.5 pb-1 pt-2 text-[10.5px] font-semibold tracking-wide text-foreground-muted/60">
+                  {g.group}
                 </div>
               )}
-              {pluginNavs.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={item.label}
-                  aria-label={item.label}
-                  className={({ isActive }) =>
-                    `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
-                      isActive
-                        ? 'translate-x-1 bg-primary-50 font-semibold text-primary-600'
-                        : 'text-foreground-muted hover:translate-x-1 hover:bg-primary-50/60 hover:text-foreground'
-                    }`
-                  }
-                >
-                  <item.icon size={18} strokeWidth={2} className="shrink-0" />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </NavLink>
-              ))}
-            </>
-          )}
+              <div className="space-y-1">
+                {g.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    title={item.label}
+                    aria-label={item.label}
+                    className={({ isActive }) =>
+                      `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
+                        isActive
+                          ? 'translate-x-1 bg-primary-50 font-semibold text-primary-600'
+                          : 'text-foreground-muted hover:translate-x-1 hover:bg-primary-50/60 hover:text-foreground'
+                      }`
+                    }
+                  >
+                    <item.icon size={18} strokeWidth={2} className="shrink-0" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    <span
+                      aria-hidden
+                      className={`sidebar-nav-indicator absolute right-2 rounded-full bg-primary-500 transition-opacity duration-180 ${
+                        location.pathname === item.to ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* 底部折叠按钮: 折叠后纯图标 + tooltip */}
