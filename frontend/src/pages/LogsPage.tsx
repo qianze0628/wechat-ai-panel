@@ -17,6 +17,7 @@ const SERVICES = [
   { key: 'wechat', label: 'wechat-bot' },
   { key: 'astrbot', label: 'AstrBot' },
   { key: 'qr', label: 'qr-server' },
+  { key: 'install', label: '安装日志' },
   { key: 'wechat_err', label: 'wechat-bot (错误)' },
   { key: 'astrbot_err', label: 'AstrBot (错误)' },
   { key: 'qr_err', label: 'qr-server (错误)' },

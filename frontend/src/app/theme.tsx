@@ -7,12 +7,13 @@ const ACCENT_KEY = 'wechat-ai-panel-accent'
 
 // 预设主色板 (用户可 DIY, napcat 也是这么做的): 名字 → { light: 主色, dark: 主色 }
 export const ACCENT_PRESETS: { name: string; color: string; dark: string; label: string }[] = [
+  // AstrBot 品牌双蓝体系为默认 (仿 AstrBot WebUI 风格)
+  { name: 'astrbot-blue', color: '#3C96CA', dark: '#5BA4D4', label: 'AstrBot 蓝' },
+  { name: 'astrbot-deep', color: '#2F86BD', dark: '#4A95C4', label: '深海蓝' },
   { name: 'pink', color: '#F33B7C', dark: '#f31260', label: '樱花粉' },
-  { name: 'blue', color: '#3b82f6', dark: '#3b82f6', label: '冰霜蓝' },
   { name: 'green', color: '#10b981', dark: '#10b981', label: '薄荷绿' },
   { name: 'purple', color: '#8b5cf6', dark: '#8b5cf6', label: '葡萄紫' },
   { name: 'orange', color: '#f97316', dark: '#fb923c', label: '蜜桃橙' },
-  { name: 'teal', color: '#14b8a6', dark: '#2dd4bf', label: '青碧蓝' },
 ]
 
 interface ThemeContextValue {

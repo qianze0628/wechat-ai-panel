@@ -106,7 +106,7 @@ export default function ConnectionPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="glass-panel p-5"
+          className="glass-panel hover-lift p-5"
         >
           <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-foreground">
             <QrCode size={16} className="text-primary-500" />
@@ -157,7 +157,7 @@ export default function ConnectionPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: 0.05 }}
-          className="glass-panel p-5"
+          className="glass-panel hover-lift p-5"
         >
           {/* AstrBot 凭据 */}
           <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-foreground">

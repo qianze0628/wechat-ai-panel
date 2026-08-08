@@ -75,7 +75,10 @@ export interface QrStatus {
 
 export interface StartStep {
   service: string
-  status: string
+  /** 后端实际返回布尔 ok (Go: map[string]any{"ok": bool}) */
+  ok?: boolean
+  /** 兼容旧字段 (如 status 文本) */
+  status?: string
   message: string
 }
 

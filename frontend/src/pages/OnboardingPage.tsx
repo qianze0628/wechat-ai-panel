@@ -17,6 +17,7 @@ import {
   Settings2,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import Modal from '../components/ui/Modal'
 import SuccessModal from '../components/ui/SuccessModal'
 import type { EnvStatus } from '../types/api'
 
@@ -68,14 +69,43 @@ export default function OnboardingPage() {
   const logged = !!qr?.logged
 
   // 安装: 平台 + 自定义路径 + 日志 + 完成弹窗
-  const [installPlatform, setInstallPlatform] = useState<'windows' | 'mac' | 'linux'>('windows')
+  // 默认按浏览器所在系统检测真实平台 (避免 Linux 用户被默认装成 Windows)
+  const [installPlatform, setInstallPlatform] = useState<'windows' | 'mac' | 'linux'>(() => {
+    const ua = navigator.userAgent.toLowerCase()
+    if (ua.includes('mac os') || ua.includes('macintosh')) return 'mac'
+    if (ua.includes('linux') || ua.includes('x11')) return 'linux'
+    return 'windows'
+  })
   const [wechatDir, setWechatDir] = useState('')
   const [astrbotDir, setAstrbotDir] = useState('')
   const [showInstalledDialog, setShowInstalledDialog] = useState(false)
+  // 安装弹窗: null=关闭, 'select'=选平台, 'progress'=安装进度
+  const [installDialog, setInstallDialog] = useState<'select' | 'progress' | null>(null)
+  // 环境缺失预览 (打开选择弹窗时拉取)
+  const [envMissing, setEnvMissing] = useState<string[]>([])
+
+  // 打开安装弹窗: 先查环境缺失项, 供用户确认
+  async function openInstallDialog() {
+    try {
+      const e = await panelApi.env()
+      const missing: string[] = []
+      if (!e.node.installed) missing.push('Node.js (运行 wechat-bot 必需)')
+      if (!e.uv.installed) missing.push('uv (安装 AstrBot 必需)')
+      if (!e.python.installed) missing.push('Python (AstrBot 依赖)')
+      if (!e.astrbot.installed) missing.push('AstrBot (AI 对话引擎)')
+      if (!e.wechat_bot.installed) missing.push('wechat-bot (微信桥接器)')
+      setEnvMissing(missing)
+    } catch {
+      setEnvMissing([])
+    }
+    setInstallDialog('select')
+  }
 
   async function runInstall() {
     if (busy) return
     setBusy('install')
+    // 关闭平台选择弹窗, 打开进度弹窗
+    setInstallDialog('progress')
     try {
       const r = await panelApi.install({
         platform: installPlatform,
@@ -84,6 +114,7 @@ export default function OnboardingPage() {
       })
       if (!r.ok) {
         toast.error(r.message || '安装请求失败')
+        setInstallDialog(null)
         setBusy(null)
         return
       }
@@ -95,6 +126,7 @@ export default function OnboardingPage() {
           platform: r.platform,
           install_where: { platform: r.platform, wechat_dir: r.wechat_dir, astrbot_dir: r.astrbot_dir },
         })
+        setInstallDialog(null)
         setShowInstalledDialog(true)
         setBusy(null)
         return
@@ -102,9 +134,9 @@ export default function OnboardingPage() {
       // 有实际安装任务: 进入轮询
       toast.success(r.message || '开始安装')
       setInstallState({ running: true, done: false, ok: null, logs: [], platform: r.platform })
-      setShowInstalledDialog(false)
       pollInstall()
     } catch {
+      setInstallDialog(null)
       setBusy(null)
     }
   }
@@ -115,9 +147,10 @@ export default function OnboardingPage() {
         const s = await panelApi.installStatus()
         setInstallState({ running: s.running, done: s.done, ok: s.ok, logs: s.logs, platform: s.platform, install_where: s.install_where })
         if (s.running || !s.done) {
-          setTimeout(poll, 1500)
+          setTimeout(poll, 1200)
         } else {
           setBusy(null)
+          setInstallDialog(null) // 关闭进度弹窗
           if (s.ok) {
             toast.success('依赖安装完成')
             setShowInstalledDialog(true)
@@ -128,6 +161,7 @@ export default function OnboardingPage() {
         }
       } catch {
         setBusy(null)
+        setInstallDialog(null)
       }
     }
     setTimeout(poll, 800)
@@ -252,9 +286,9 @@ export default function OnboardingPage() {
           )
         return (
           <button
-            onClick={runInstall}
+            onClick={openInstallDialog}
             disabled={!!busy}
-            className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3.5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="btn-capsule flex items-center gap-1.5 bg-primary-500 px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             <Wrench size={14} /> 安装依赖
           </button>
@@ -336,7 +370,7 @@ export default function OnboardingPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18, delay: Math.min(i * 0.03, 0.2) }}
-          className="glass-panel flex items-center gap-3 p-4"
+          className="glass-panel hover-lift flex items-center gap-3 p-4"
         >
           {/* 序号/状态 */}
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-solid text-foreground-muted">
@@ -358,7 +392,7 @@ export default function OnboardingPage() {
           依赖安装
           <span className="text-[11px] font-normal text-foreground-muted">选择系统平台与安装路径</span>
           <button
-            onClick={runInstall}
+            onClick={openInstallDialog}
             disabled={!!busy || installState.running}
             className="ml-auto flex items-center gap-1.5 rounded-lg bg-primary-500 px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
@@ -426,6 +460,109 @@ export default function OnboardingPage() {
           </pre>
         </div>
       </div>
+
+      {/* 安装平台选择弹窗 */}
+      <Modal open={installDialog === 'select'} onClose={() => setInstallDialog(null)} title="选择系统平台">
+        <div className="space-y-3">
+          <p className="text-[13px] text-foreground-muted">
+            请选择运行本面板与服务的操作系统。将自动检测缺失的环境依赖并安装：
+          </p>
+          {envMissing.length > 0 && (
+            <div className="space-y-1.5 rounded-xl border border-warning/30 bg-warning/10 p-3 text-[12.5px]">
+              <div className="font-semibold text-warning">将安装以下组件:</div>
+              {envMissing.map((m) => (
+                <div key={m} className="flex items-center gap-1.5 text-foreground-muted">
+                  <TriangleAlert size={12} className="shrink-0 text-warning" /> {m}
+                </div>
+              ))}
+            </div>
+          )}
+          {envMissing.length === 0 && (
+            <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-[12.5px] text-success">
+              环境已就绪，无缺失组件
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { v: 'windows', label: 'Windows', icon: '🪟' },
+                { v: 'mac', label: 'macOS', icon: '🍎' },
+                { v: 'linux', label: 'Linux', icon: '🐧' },
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.v}
+                onClick={() => setInstallPlatform(p.v)}
+                className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-[12.5px] font-medium transition-all ${
+                  installPlatform === p.v
+                    ? 'border-primary-500 bg-primary-50 text-primary-600'
+                    : 'border-border bg-surface-solid text-foreground-muted hover:border-primary-300'
+                }`}
+              >
+                <span className="text-xl">{p.icon}</span>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={runInstall}
+            disabled={!!busy}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-500 py-2.5 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            <Wrench size={15} /> 确认安装
+          </button>
+        </div>
+      </Modal>
+
+      {/* 安装进度弹窗: 进度条 + 实时日志 */}
+      <Modal open={installDialog === 'progress'} onClose={() => setInstallDialog(null)} title="正在安装">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-[12.5px] text-foreground-muted">
+            <span className="flex items-center gap-1.5">
+              <Loader2 size={14} className="animate-spin text-primary-500" />
+              安装进行中...
+            </span>
+            <span>已输出 {installState.logs.length} 行</span>
+          </div>
+          {/* 进度条 (未知总步骤时用 indeterminate 动画) */}
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-solid">
+            <motion.div
+              className="h-full rounded-full bg-primary-500"
+              animate={
+                installState.done
+                  ? { width: '100%' }
+                  : { x: ['-100%', '100%'] }
+              }
+              transition={
+                installState.done
+                  ? { duration: 0.3 }
+                  : { repeat: Infinity, duration: 1.2, ease: 'easeInOut' }
+              }
+              style={installState.done ? { width: '100%' } : { width: '40%' }}
+            />
+          </div>
+          {/* 实时日志 */}
+          <div className="h-56 overflow-y-auto rounded-xl border border-border bg-surface-solid p-3 font-mono text-[11.5px] leading-relaxed text-foreground-muted">
+            {installState.logs.length === 0 ? (
+              <div className="text-foreground-muted/60">等待安装输出...</div>
+            ) : (
+              installState.logs.map((l, i) => (
+                <div key={i} className={l.includes('FAILED') || l.includes('[error]') ? 'text-danger' : ''}>
+                  {l}
+                </div>
+              ))
+            )}
+          </div>
+          {installState.done && (
+            <button
+              onClick={() => setInstallDialog(null)}
+              className="w-full rounded-xl bg-primary-500 py-2 text-[13px] font-semibold text-white"
+            >
+              {installState.ok ? '完成' : '关闭并查看日志'}
+            </button>
+          )}
+        </div>
+      </Modal>
 
       {/* 安装完成弹窗: 显示安装位置 */}
       <SuccessModal open={showInstalledDialog} onClose={() => setShowInstalledDialog(false)} title="安装完成">

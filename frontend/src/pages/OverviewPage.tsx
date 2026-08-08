@@ -21,8 +21,53 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { panelApi } from '../api'
+import InstallModal from '../components/ui/InstallModal'
 import SuccessModal from '../components/ui/SuccessModal'
-import type { ServiceInfo, StartStep } from '../types/api'
+import type { ServiceInfo, ServicesStatus } from '../types/api'
+
+// ===== 服务健康等待 (轮询 /api/services, 期间 UI 实时更新) =====
+async function fetchServices(): Promise<ServicesStatus | null> {
+  try {
+    return await panelApi.services()
+  } catch {
+    return null
+  }
+}
+
+/** 等待单个服务健康, 最多 timeoutMs; 期间每 1.5s 轮询 */
+async function waitServiceHealthy(service: string, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const s = await fetchServices()
+    if (s && s[service as keyof ServicesStatus]?.running) return true
+    await new Promise((res) => setTimeout(res, 1500))
+  }
+  // 最后再确认一次
+  const s = await fetchServices()
+  return !!(s && s[service as keyof ServicesStatus]?.running)
+}
+
+/** 等待多个服务健康 (全部健康才返回 true), 最多 timeoutMs */
+async function waitServicesHealthy(
+  names: string[],
+  timeoutMs: number,
+): Promise<{ name: string; healthy: boolean }[]> {
+  const deadline = Date.now() + timeoutMs
+  const healthyMap: Record<string, boolean> = {}
+  while (Date.now() < deadline) {
+    const s = await fetchServices()
+    if (s) {
+      for (const n of names) {
+        if (!healthyMap[n] && s[n as keyof ServicesStatus]?.running) {
+          healthyMap[n] = true
+        }
+      }
+      if (names.every((n) => healthyMap[n])) break
+    }
+    await new Promise((res) => setTimeout(res, 1500))
+  }
+  return names.map((n) => ({ name: n, healthy: !!healthyMap[n] }))
+}
 
 // ===== 状态 Badge =====
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
@@ -71,7 +116,7 @@ function ServiceCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18 }}
-      className="glass-panel p-5"
+      className="glass-panel hover-lift p-5"
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -264,8 +309,10 @@ export default function OverviewPage() {
   // 按钮 loading 状态 (按服务+动作)
   const [busy, setBusy] = useState<{ key: string; action?: string } | null>(null)
   // 安装完成弹窗
-  const [showInstalledDialog, setShowInstalledDialog] = useState(false)
-  const [installedWhere, setInstalledWhere] = useState<{ platform: string; wechat_dir?: string; astrbot_dir?: string } | null>(null)
+  // 启动成功弹窗
+  const [startResult, setStartResult] = useState<{ title: string; detail: string } | null>(null)
+  // 一键安装弹窗 (触发计数)
+  const [installTrigger, setInstallTrigger] = useState(0)
 
   // 部署进度: 环境齐全 → 服务健康 → 已配置 OneBot
   const envReady =
@@ -292,40 +339,29 @@ export default function OverviewPage() {
     try {
       const r = await panelApi[act](service)
       if (r.ok === false) {
-        toast.error(r.message || `${label}失败`)
-      } else {
-        toast.success(`${label}请求已发送`)
-        if (r.message && !r.ok) {
-          toast.error(r.message)
-        }
+        toast.error(r.message || `${label}${act === 'start' ? '启动' : act === 'stop' ? '停止' : '重启'}失败`)
+        return
       }
-      refetch()
-      // 等一轮轮询后按最终状态提示
-      setTimeout(() => refetch(), 1500)
+      if (act === 'start') {
+        // 启动: 轮询等待健康 (最多 75s), 期间 UI 实时更新
+        const healthy = await waitServiceHealthy(service, 75000)
+        if (healthy) {
+          setStartResult({
+            title: `${label} 启动成功`,
+            detail: `${label} 已启动并健康检查通过`,
+          })
+        } else {
+          toast.error(`${label} 启动超时 (健康检查未通过)`)
+        }
+      } else if (act === 'restart') {
+        // 重启: 等待服务重新健康
+        const healthy = await waitServiceHealthy(service, 75000)
+        toast.success(healthy ? `${label} 已重启` : `${label} 重启后健康检查未通过`)
+      } else {
+        toast.success(`${label} 已停止`)
+      }
     } catch (e) {
       // 401 / 网络 / 超时 已由 client 统一 toast
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  // 一键安装
-  async function handleInstall() {
-    if (busy) return
-    setBusy({ key: 'install' })
-    try {
-      const r = await panelApi.install()
-      if (r.tasks.length === 0) {
-        // 全部组件已就绪: 弹完成窗显示当前位置
-        toast.success(r.message || '组件齐全, 无需安装')
-        setInstalledWhere({ platform: r.platform, wechat_dir: r.wechat_dir, astrbot_dir: r.astrbot_dir })
-        setShowInstalledDialog(true)
-      } else {
-        toast.success('安装已在后台启动, 可到部署向导查看进度')
-      }
-      refetch()
-    } catch {
-      /* client 已 toast */
     } finally {
       setBusy(null)
     }
@@ -339,17 +375,23 @@ export default function OverviewPage() {
       const r = await panelApi[act]('all')
       if (r.ok === false) {
         toast.error(r.message || `${act === 'start' ? '启动' : '停止'}全部服务失败`)
-      } else {
-        toast.success(`全部服务${act === 'start' ? '启动' : '停止'}完成`)
-      }
-      // start 返回 steps (分阶段明细)
-      if (act === 'start') {
-        const sr = r as { steps?: StartStep[] }
-        sr.steps?.forEach((s) => {
-          if (s.status !== 'ok') toast.error(`[${s.service}] ${s.message}`)
+      } else if (act === 'start') {
+        // 启动全部: 轮询等待所有服务健康 (最多 90s), 期间 UI 实时变绿
+        const names = ['astrbot', 'wechat', 'qr']
+        const results = await waitServicesHealthy(names, 90000)
+        const lines = results.map(({ name, healthy }) => `${healthy ? '✅' : '❌'} ${name}: ${healthy ? '已启动' : '启动超时'}`)
+        const allHealthy = results.every((r2) => r2.healthy)
+        setStartResult({
+          title: allHealthy ? '全部服务启动完成' : '部分服务启动未完成',
+          detail: lines.join('\n'),
         })
+        // 超时的服务单独提示
+        results.forEach((r2) => {
+          if (!r2.healthy) toast.error(`[${r2.name}] 启动超时`)
+        })
+      } else {
+        toast.success('全部服务已停止')
       }
-      refetch()
     } catch {
       /* client 已 toast */
     } finally {
@@ -357,7 +399,6 @@ export default function OverviewPage() {
     }
   }
 
-  const installing = busy?.key === 'install'
 
   if (isLoading || !data) {
     return (
@@ -438,17 +479,16 @@ export default function OverviewPage() {
           <div className="mb-3 text-[14px] font-semibold text-foreground">快速操作</div>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={handleInstall}
+              onClick={() => setInstallTrigger((n) => n + 1)}
               disabled={!!busy}
               className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3.5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {installing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-              {installing ? '正在安装…' : '一键安装缺失组件'}
+              <Play size={14} /> 一键安装缺失组件
             </button>
             <button
               onClick={() => allAction('start')}
               disabled={!!busy || (svc?.astrbot.running && svc?.wechat.running && svc?.qr.running)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-[13px] text-foreground-muted transition-colors hover:bg-primary-50 hover:text-primary-600 disabled:opacity-40"
+              className="btn-capsule flex items-center gap-1.5 bg-primary-500 px-5 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
             >
               {busy?.key === 'all' && busy.action === 'start' ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -520,26 +560,15 @@ export default function OverviewPage() {
         </div>
       )}
 
-      {/* 安装完成弹窗 */}
-      <SuccessModal open={showInstalledDialog && !!installedWhere} onClose={() => setShowInstalledDialog(false)} title="安装完成">
-        {installedWhere && (
-          <>
-            <p className="mb-3 text-[13px] text-foreground-muted">组件安装/检查完成，位置如下：</p>
-            <div className="space-y-2 rounded-xl border border-border bg-surface-solid p-3.5 text-[12.5px]">
-              {[
-                ['系统平台', installedWhere.platform],
-                ['wechat-bot', installedWhere.wechat_dir || '（默认路径）'],
-                ['AstrBot', installedWhere.astrbot_dir || '（默认路径）'],
-              ].map(([k, v]) => (
-                <div key={k} className="flex gap-3">
-                  <span className="w-28 shrink-0 text-foreground-muted/70">{k}</span>
-                  <span className="mono min-w-0 flex-1 break-all text-foreground">{v}</span>
-                </div>
-              ))}
-            </div>
-          </>
+      {/* 启动成功弹窗 */}
+      <SuccessModal open={!!startResult} onClose={() => setStartResult(null)} title={startResult?.title ?? '启动成功'}>
+        {startResult && (
+          <p className="text-[13px] leading-relaxed text-foreground-muted">{startResult.detail}</p>
         )}
       </SuccessModal>
+
+      {/* 一键安装弹窗 (平台选择 + 进度) */}
+      <InstallModal trigger={installTrigger} onDone={() => refetch()} />
     </div>
   )
 }

@@ -129,6 +129,34 @@ pre,
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
 }
 
+/* ===== AstrBot 风格: 卡片 hover 上浮 (仿 AstrBot WebUI item-card) ===== */
+.hover-lift {
+  transition:
+    background-color 0.16s ease,
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(60, 150, 202, 0.12);
+}
+
+/* ===== AstrBot 风格: 胶囊主按钮 (仿 "创建机器人" 主按钮) ===== */
+.btn-capsule {
+  border-radius: 48px;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+.btn-capsule:hover {
+  transform: translateY(-1px);
+}
+.btn-capsule:active {
+  transform: translateY(0);
+}
+
 /* ===== 顶栏辅助类 (浅色玻璃上的可读性) ===== */
 .topbar-status-text {
   color: var(--topbar-muted);
