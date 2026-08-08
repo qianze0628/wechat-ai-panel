@@ -18,6 +18,22 @@ from ..logs_core import _log_paths, _safe_read
 from ..processes import _force_stop_ports, _service_ports, start_astrbot
 
 
+def _wechat_logged_in():
+    """调 wechat-bot /api/status 获取真实登录状态; 失败返回 False"""
+    import urllib.request
+    api_port = CONFIG["services"]["wechat"]["api_port"]
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{api_port}/api/status",
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as r:
+            data = json.loads(r.read().decode("utf-8"))
+            return bool(data.get("loggedIn", False))
+    except Exception:
+        return False
+
+
 def _qr_placeholder(text):
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320">'
            f'<rect width="320" height="320" fill="#eee"/>'
@@ -34,12 +50,12 @@ def register(app):
             p = logs.get(key, "")
             if p and os.path.isfile(p):
                 candidates.append(p)
-        logged = False
+        # 登录状态: 优先调 wechat-bot 真实 API (日志残留 "has logged in" 不可靠:
+        # 重新扫码时日志仍含旧登录记录, 会导致误判为已登录)
+        logged = _wechat_logged_in()
         qr_url = None
         for path in candidates:
             content = _safe_read(path, 500 * 1024)
-            if not logged and ("has logged in" in content or "已登录" in content):
-                logged = True
             if not qr_url:
                 marker = "onScan: "
                 idx = content.rfind(marker)
