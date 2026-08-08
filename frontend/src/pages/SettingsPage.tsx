@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Download,
   Settings2,
+  Globe,
 } from 'lucide-react'
 import { panelApi, authApi, settingsApi, autostartApi, updateApi } from '../api'
 import { api } from '../api/client'
@@ -64,6 +65,29 @@ export default function SettingsPage() {
     queryKey: ['autostart'],
     queryFn: autostartApi.status,
   })
+  // 网络设置 (host/port/镜像) — 从 status.config 读初始值
+  const netCfg = (data?.config ?? {}) as Record<string, unknown>
+  const [panelHost, setPanelHost] = useState(String(netCfg.host ?? '127.0.0.1'))
+  const [panelPortInput, setPanelPortInput] = useState(Number(netCfg.port ?? 8080))
+  const [mirrorNpm, setMirrorNpm] = useState(String((netCfg.mirrors as Record<string, unknown>)?.npm_registry ?? 'https://registry.npmmirror.com'))
+  const [mirrorPypi, setMirrorPypi] = useState(String((netCfg.mirrors as Record<string, unknown>)?.pypi_index ?? 'https://mirrors.aliyun.com/pypi/simple/'))
+  const [savingNet, setSavingNet] = useState(false)
+  async function saveNetwork() {
+    setSavingNet(true)
+    try {
+      const r = await settingsApi.save({
+        host: panelHost,
+        port: panelPortInput,
+        mirror_npm: mirrorNpm,
+        mirror_pypi: mirrorPypi,
+      })
+      toast.success((r as { message?: string }).message || '网络设置已保存 (重启生效)')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingNet(false)
+    }
+  }
   // AstrBot 常规设置 (时区/日志)
   const [astrTimezone, setAstrTimezone] = useState('')
   const [astrLogLevel, setAstrLogLevel] = useState('INFO')
@@ -578,6 +602,73 @@ export default function SettingsPage() {
             >
               {savingAstr ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               保存 AstrBot 设置
+            </button>
+          </div>
+        </div>
+      </Section>
+
+      {/* 网络 (面板监听/镜像) */}
+      <Section icon={Globe} title="网络">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">监听地址</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">0.0.0.0=局域网可访问 (重启生效)</div>
+            </div>
+            <input
+              type="text"
+              value={panelHost}
+              onChange={(e) => setPanelHost(e.target.value)}
+              placeholder="127.0.0.1"
+              className="h-9 w-full max-w-[240px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">面板端口</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">重启生效</div>
+            </div>
+            <input
+              type="number"
+              value={panelPortInput}
+              onChange={(e) => setPanelPortInput(Number(e.target.value))}
+              className="h-9 w-full max-w-[240px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">npm 镜像</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">国内加速 (npmmirror)</div>
+            </div>
+            <input
+              type="text"
+              value={mirrorNpm}
+              onChange={(e) => setMirrorNpm(e.target.value)}
+              placeholder="https://registry.npmmirror.com"
+              className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">pip/uv 镜像</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">国内加速 (阿里云)</div>
+            </div>
+            <input
+              type="text"
+              value={mirrorPypi}
+              onChange={(e) => setMirrorPypi(e.target.value)}
+              placeholder="https://mirrors.aliyun.com/pypi/simple/"
+              className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={saveNetwork}
+              disabled={savingNet}
+              className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {savingNet ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              保存网络设置
             </button>
           </div>
         </div>

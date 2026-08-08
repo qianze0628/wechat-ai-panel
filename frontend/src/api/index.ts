@@ -32,7 +32,15 @@ export interface PanelSettings {
 
 export const settingsApi = {
   get: () => api.get<PanelSettings>('/api/settings'),
-  save: (payload: { panel_password?: string; backup_enabled?: boolean }) =>
+  save: (payload: {
+    panel_password?: string
+    backup_enabled?: boolean
+    host?: string
+    port?: number
+    mirror_npm?: string
+    mirror_pypi?: string
+    mirror_git?: string
+  }) =>
     api.post<{ ok: boolean; message: string; changes: string[]; auth_changed?: boolean; auth_disabled?: boolean }>(
       '/api/settings',
       payload,
