@@ -13,6 +13,24 @@ from ..config import CONFIG
 from ..env import _which
 from ..processes import CREATE_NO_WINDOW
 
+# 国内镜像源 (config 读入; 空=直连官方源)
+def _mirrors():
+    m = CONFIG.get("mirrors", {}) or {}
+    return {
+        "npm": (m.get("npm_registry") or "").strip(),
+        "pypi": (m.get("pypi_index") or "").strip(),
+        "git": (m.get("git_clone_proxy") or "").strip(),
+    }
+
+
+def _npm_args():
+    """npm install 命令 + 镜像 registry 参数"""
+    args = ["npm", "install"]
+    reg = _mirrors()["npm"]
+    if reg:
+        args.append("--registry=" + reg)
+    return args
+
 _INSTALL_STATE = {"running": False, "logs": [], "done": False, "ok": None, "platform": None, "install_where": {}}
 
 
@@ -54,19 +72,26 @@ def _run_install(tasks, platform, wechat_dir, astrbot_root):
         try:
             if kind == "npm":
                 r = subprocess.run(
-                    ["npm", "install"], cwd=task["target"],
+                    _npm_args(), cwd=task["target"],
                     capture_output=True, text=True, timeout=600,
                     creationflags=CREATE_NO_WINDOW,
+                    env={**os.environ, **({"UV_INDEX_URL": _mirrors()["pypi"], "PIP_INDEX_URL": _mirrors()["pypi"]} if _mirrors()["pypi"] else {})},
                 )
                 tail = (r.stdout or "")[-800:] + "\n" + (r.stderr or "")[-800:]
                 if r.returncode != 0:
                     ok_all = False
                 _INSTALL_STATE["logs"].append(f"[{platform}] [done] {task['label']} exit={r.returncode}\n{tail}")
             elif kind == "uv":
+                uv_env = {**os.environ}
+                pypi = _mirrors()["pypi"]
+                if pypi:
+                    uv_env["UV_INDEX_URL"] = pypi
+                    uv_env["PIP_INDEX_URL"] = pypi
                 r = subprocess.run(
                     ["uv", "tool", "install", "astrbot"],
                     capture_output=True, text=True, timeout=900,
                     creationflags=CREATE_NO_WINDOW,
+                    env=uv_env,
                 )
                 tail = (r.stdout or "")[-800:] + "\n" + (r.stderr or "")[-800:]
                 if r.returncode != 0:
@@ -78,22 +103,45 @@ def _run_install(tasks, platform, wechat_dir, astrbot_root):
                     os.makedirs(task["target"], exist_ok=True)
                 except Exception:
                     pass
-                r = subprocess.run(
-                    ["git", "clone", "--depth", "1", task["repo"], task["target"]],
-                    capture_output=True, text=True, timeout=900,
-                    creationflags=CREATE_NO_WINDOW,
-                )
-                tail = (r.stdout or "")[-800:] + "\n" + (r.stderr or "")[-800:]
-                _INSTALL_STATE["logs"].append(f"[{platform}] [done] {task['label']} exit={r.returncode}\n{tail}")
+                git_proxy = _mirrors()["git"]
+                repo_url = task["repo"]
+                if git_proxy:
+                    _INSTALL_STATE["logs"].append(f"[{platform}] [info] 尝试镜像加速: {git_proxy}{repo_url.replace('https://', '')}")
+                    proxied = git_proxy + repo_url.replace("https://", "").replace("http://", "")
+                    r = subprocess.run(
+                        ["git", "clone", "--depth", "1", proxied, task["target"]],
+                        capture_output=True, text=True, timeout=900,
+                        creationflags=CREATE_NO_WINDOW,
+                    )
+                    if r.returncode != 0:
+                        _INSTALL_STATE["logs"].append(f"[{platform}] [warn] 镜像失败, 回退直连: {(r.stderr or '')[-400:]}")
+                else:
+                    r = None
+                if r is None or r.returncode != 0:
+                    # 清半成品再直连
+                    try:
+                        import shutil
+                        if os.path.isdir(task["target"]):
+                            shutil.rmtree(task["target"], ignore_errors=True)
+                        os.makedirs(task["target"], exist_ok=True)
+                    except Exception:
+                        pass
+                    r = subprocess.run(
+                        ["git", "clone", "--depth", "1", repo_url, task["target"]],
+                        capture_output=True, text=True, timeout=900,
+                        creationflags=CREATE_NO_WINDOW,
+                    )
+                _INSTALL_STATE["logs"].append(f"[{platform}] [done] {task['label']} exit={r.returncode}\n{(r.stdout or '')[-800:]}\n{(r.stderr or '')[-800:]}")
                 if r.returncode != 0:
                     ok_all = False
                 else:
                     # 克隆成功后补 npm install (源码就绪)
                     _INSTALL_STATE["logs"].append(f"[{platform}] [start] npm install (wechat-bot)")
                     r2 = subprocess.run(
-                        ["npm", "install"], cwd=task["target"],
+                        _npm_args(), cwd=task["target"],
                         capture_output=True, text=True, timeout=600,
                         creationflags=CREATE_NO_WINDOW,
+                        env={**os.environ, **({"UV_INDEX_URL": _mirrors()["pypi"], "PIP_INDEX_URL": _mirrors()["pypi"]} if _mirrors()["pypi"] else {})},
                     )
                     tail2 = (r2.stdout or "")[-800:] + "\n" + (r2.stderr or "")[-800:]
                     _INSTALL_STATE["logs"].append(f"[{platform}] [done] npm install exit={r2.returncode}\n{tail2}")

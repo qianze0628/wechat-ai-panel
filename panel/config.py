@@ -21,6 +21,12 @@ DEFAULT_CONFIG = {
     "qr_server_script": "C:/Users/YMB/Desktop/wechat/qr-server.js",
     "wechat_bot_serve": "ChatGPT",
     "wechat_bot_repo": "",
+    # 国内镜像源 (npm/pypi/git clone 加速, 免代理; 与 Go 版一致, 可覆盖/留空禁用)
+    "mirrors": {
+        "npm_registry": "https://registry.npmmirror.com",
+        "pypi_index": "https://mirrors.aliyun.com/pypi/simple/",
+        "git_clone_proxy": "",
+    },
     "logs": {
         "astrbot_stdout": "logs/astrbot_boot.log",
         "astrbot_stderr": "logs/astrbot_boot_err.log",
