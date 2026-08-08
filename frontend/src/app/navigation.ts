@@ -15,6 +15,7 @@ import {
   Store,
   Cpu,
   UserRound,
+  Library,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -35,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/connection', label: '连接配置', icon: Cable, description: '微信扫码、凭据与 OneBot 配置', group: '机器人' },
   { to: '/providers', label: '模型提供商', icon: Cpu, description: '管理 AstrBot 模型提供商与 API Key', group: '机器人' },
   { to: '/persona', label: '人格设定', icon: UserRound, description: '默认人格与人格池', group: '机器人' },
+  { to: '/knowledge', label: '知识库', icon: Library, description: '知识库集合与检索参数', group: '机器人' },
   { to: '/whitelist', label: '白名单与管理员', icon: ShieldCheck, description: '微信联系人白名单与管理权限设置', group: '机器人' },
   // 插件
   { to: '/plugins', label: '插件中心', icon: Blocks, description: 'AstrBot 插件管理与配置', group: '插件' },

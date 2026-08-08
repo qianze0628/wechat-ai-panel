@@ -17,6 +17,7 @@ import PluginDetailPage from '../pages/PluginDetailPage'
 import PluginMarketPage from '../pages/PluginMarketPage'
 import ProvidersPage from '../pages/ProvidersPage'
 import PersonaRulesPage from '../pages/PersonaRulesPage'
+import KnowledgePage from '../pages/KnowledgePage'
 import ConfigFilePage from '../pages/ConfigFilePage'
 import StatsPage from '../pages/StatsPage'
 
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/config" element={<ConfigFilePage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/persona" element={<PersonaRulesPage />} />
+        <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/rules" element={<PersonaRulesPage />} />
         <Route path="/stats" element={<StatsPage />} />
         {/* 仅未知路径回退首页 */}
