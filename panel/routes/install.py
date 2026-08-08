@@ -127,8 +127,7 @@ def register(app):
         try:
             body = await request.json()
             if isinstance(body, dict):
-                if body.get("platform"):
-                    platform = str(body["platform"]).lower()
+                # 前端传的 platform (浏览器系统) 仅供参考, 安装必须基于面板实际系统
                 if body.get("wechat_dir"):
                     wechat_dir = str(body["wechat_dir"]).replace("\\", "/")
                 if body.get("astrbot_dir"):
