@@ -17,6 +17,7 @@ import {
   UserRound,
   Library,
   KeyRound,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -49,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/logs', label: '平台日志', icon: TerminalSquare, description: '终端式日志查看与搜索', group: '更多功能' },
   { to: '/stats', label: '数据统计', icon: BarChart3, description: '消息量/活跃度等统计', group: '更多功能' },
   { to: '/rules', label: '自定义规则', icon: ShieldCheck, description: '内容安全与关键词过滤规则', group: '更多功能' },
+  { to: '/agent', label: '子代理编排', icon: Workflow, description: 'Agent 运行器与工具配置', group: '更多功能' },
   { to: '/backups', label: '备份恢复', icon: ArchiveRestore, description: 'AstrBot 配置备份与恢复', group: '更多功能' },
   // 设置
   { to: '/settings', label: '设置', icon: Settings2, description: '常规 / 外观 / 安全 / 维护', group: '设置' },

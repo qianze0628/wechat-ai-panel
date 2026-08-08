@@ -19,6 +19,7 @@ import ProvidersPage from '../pages/ProvidersPage'
 import PersonaRulesPage from '../pages/PersonaRulesPage'
 import KnowledgePage from '../pages/KnowledgePage'
 import OpenApiPage from '../pages/OpenApiPage'
+import AgentPage from '../pages/AgentPage'
 import ConfigFilePage from '../pages/ConfigFilePage'
 import StatsPage from '../pages/StatsPage'
 
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="/persona" element={<PersonaRulesPage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/openapi" element={<OpenApiPage />} />
+        <Route path="/agent" element={<AgentPage />} />
         <Route path="/rules" element={<PersonaRulesPage />} />
         <Route path="/stats" element={<StatsPage />} />
         {/* 仅未知路径回退首页 */}
