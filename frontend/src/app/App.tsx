@@ -14,6 +14,9 @@ import BackupsPage from '../pages/BackupsPage'
 import SettingsPage from '../pages/SettingsPage'
 import PluginCenterPage from '../pages/PluginCenterPage'
 import PluginDetailPage from '../pages/PluginDetailPage'
+import PluginMarketPage from '../pages/PluginMarketPage'
+import ProvidersPage from '../pages/ProvidersPage'
+import PersonaRulesPage from '../pages/PersonaRulesPage'
 import ConfigFilePage from '../pages/ConfigFilePage'
 import StatsPage from '../pages/StatsPage'
 
@@ -69,8 +72,12 @@ export default function App() {
         <Route path="/backups" element={<BackupsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/plugins" element={<PluginCenterPage />} />
+        <Route path="/plugins/market" element={<PluginMarketPage />} />
         <Route path="/plugins/:id" element={<PluginDetailPage />} />
         <Route path="/config" element={<ConfigFilePage />} />
+        <Route path="/providers" element={<ProvidersPage />} />
+        <Route path="/persona" element={<PersonaRulesPage />} />
+        <Route path="/rules" element={<PersonaRulesPage />} />
         <Route path="/stats" element={<StatsPage />} />
         {/* 仅未知路径回退首页 */}
         <Route path="*" element={<Navigate to="/" replace />} />
