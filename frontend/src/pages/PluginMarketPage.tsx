@@ -33,6 +33,7 @@ export default function PluginMarketPage() {
 
   async function act(id: string, installed: boolean) {
     if (busy) return
+    if (installed && !window.confirm('确定卸载该插件? 将删除插件目录 (配置数据保留在 data/)。\n需重启 AstrBot 生效。')) return
     setBusy(id)
     try {
       const r = installed ? await marketApi.uninstall(id) : await marketApi.install(id)

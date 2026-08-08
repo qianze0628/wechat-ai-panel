@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { panelApi, authApi, settingsApi, autostartApi, updateApi } from '../api'
 import { api } from '../api/client'
+import { parseConfig } from '../lib/parseConfig'
 import { useTheme, ACCENT_PRESETS } from '../app/theme'
 import { toast } from '../app/toast'
 import Toggle from '../components/ui/Toggle'
@@ -75,7 +76,7 @@ export default function SettingsPage() {
       .get<{ ok: boolean; config: string }>('/api/cmd-config')
       .then((r) => {
         try {
-          const c = JSON.parse(r.config)
+          const c = parseConfig(r.config)
           if (c.timezone) setAstrTimezone(String(c.timezone))
           if (c.log_level) setAstrLogLevel(String(c.log_level))
           if (c.log_file_path) setAstrLogPath(String(c.log_file_path))
@@ -89,7 +90,7 @@ export default function SettingsPage() {
     try {
       // 读现有 config 后只改 3 个字段, 避免覆盖其他
       const cur = await api.get<{ ok: boolean; config: string }>('/api/cmd-config')
-      const c = JSON.parse(cur.config)
+      const c = parseConfig(cur.config)
       c.timezone = astrTimezone
       c.log_level = astrLogLevel
       c.log_file_path = astrLogPath

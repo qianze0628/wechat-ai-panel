@@ -14,11 +14,11 @@ interface Provider {
 
 const providerApi = {
   list: () => api.get<{ ok: boolean; providers: Provider[]; provider_settings: Record<string, unknown> }>('/api/providers'),
-  // 传真实数组 (前端 JSON 编码); 后端 Providers []json.RawMessage 兼容
-  save: (providers: Provider[]) =>
+  // 传真实数组 + 完整 provider_settings (避免覆盖丢失其他配置)
+  save: (providers: Provider[], settings: Record<string, unknown>) =>
     api.post<{ ok: boolean; message: string }>('/api/providers', {
       providers,
-      provider_settings: {},
+      provider_settings: settings,
     }),
 }
 
@@ -43,7 +43,7 @@ export default function ProvidersPage() {
   async function saveAll() {
     setSaving(true)
     try {
-      const r = await providerApi.save(providers)
+      const r = await providerApi.save(providers, data?.provider_settings ?? {})
       toast.success(r.message || '已保存')
       refetch()
     } catch (e) {

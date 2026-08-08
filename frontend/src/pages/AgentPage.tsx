@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Save, Workflow, Bot } from 'lucide-react'
+import { parseConfig, stringifyConfig } from '../lib/parseConfig'
 import { api } from '../api/client'
 import { toast } from '../app/toast'
 
@@ -16,7 +17,7 @@ export default function AgentPage() {
   useEffect(() => {
     if (!data?.config) return
     try {
-      setCfg(JSON.parse(data.config))
+      setCfg(parseConfig(data.config))
     } catch { /* ignore */ }
   }, [data])
 
@@ -30,7 +31,7 @@ export default function AgentPage() {
     setSaving(true)
     try {
       const r = await api.post<{ ok: boolean; message: string }>('/api/cmd-config', {
-        config: JSON.stringify(cfg),
+        config: stringifyConfig(cfg ?? {}),
       })
       toast.success(r.message || '已保存')
     } catch (e) {

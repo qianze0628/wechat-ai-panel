@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Save, FileCode2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
+import { parseConfig } from '../lib/parseConfig'
 import { toast } from '../app/toast'
 
 export default function ConfigFilePage() {
@@ -18,7 +19,7 @@ export default function ConfigFilePage() {
   useEffect(() => {
     if (data?.config && !dirty) {
       try {
-        const parsed = JSON.parse(data.config)
+        const parsed = parseConfig(data.config)
         setText(JSON.stringify(parsed, null, 2))
       } catch {
         setText(data.config)

@@ -43,9 +43,23 @@ export default function OpenApiPage() {
     }
   }
   async function copyKey() {
-    await navigator.clipboard.writeText(newKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    // 兼容非 HTTPS/IP 访问 (clipboard API 仅安全上下文可用)
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(newKey)
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = newKey
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* 复制失败静默 */
+    }
   }
 
   if (isLoading || !data) {

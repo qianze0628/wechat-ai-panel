@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Save, UserRound, ShieldCheck } from 'lucide-react'
 import { api } from '../api/client'
+import { parseConfig, stringifyConfig } from '../lib/parseConfig'
 import { toast } from '../app/toast'
 
 export default function PersonaRulesPage() {
@@ -27,7 +28,7 @@ export default function PersonaRulesPage() {
   useEffect(() => {
     if (!data?.config) return
     try {
-      setCfg(JSON.parse(data.config))
+      setCfg(parseConfig(data.config))
     } catch {
       /* 非法 JSON 保持 null */
     }
@@ -47,7 +48,7 @@ export default function PersonaRulesPage() {
     setSaving(true)
     try {
       const r = await api.post<{ ok: boolean; message: string }>('/api/cmd-config', {
-        config: JSON.stringify(cfg),
+        config: stringifyConfig(cfg ?? {}),
       })
       toast.success(r.message || '已保存')
       setSaved(true)
