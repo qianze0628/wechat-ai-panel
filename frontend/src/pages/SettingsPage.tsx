@@ -12,8 +12,9 @@ import {
   DatabaseBackup,
   Lock,
   Sparkles,
+  Power,
 } from 'lucide-react'
-import { panelApi, authApi, settingsApi } from '../api'
+import { panelApi, authApi, settingsApi, autostartApi } from '../api'
 import { useTheme, ACCENT_PRESETS } from '../app/theme'
 import { toast } from '../app/toast'
 import Toggle from '../components/ui/Toggle'
@@ -44,6 +45,22 @@ export default function SettingsPage() {
   const [password, setPassword] = useState('')
   const [backupSwitch, setBackupSwitch] = useState<boolean | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // 开机自启状态
+  const { data: autostart, refetch: refetchAutostart } = useQuery({
+    queryKey: ['autostart'],
+    queryFn: autostartApi.status,
+  })
+  const autostartOn = autostart?.enabled ?? false
+  async function toggleAutostart(v: boolean) {
+    try {
+      const r = await autostartApi.set(v)
+      toast.success(r.message || (v ? '已开启开机自启' : '已关闭开机自启'))
+      refetchAutostart()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '操作失败')
+    }
+  }
 
   const { theme, setTheme, accent, setAccent } = useTheme()
 
@@ -165,6 +182,25 @@ export default function SettingsPage() {
           checked={backupOn}
           onChange={(v) => setBackupSwitch(v)}
         />
+      </Section>
+
+      {/* 开机自启 + 服务守护 */}
+      <Section icon={ServerCog} title="开机自启与服务守护">
+        <SwitchRow
+          icon={<Power size={15} />}
+          title="开机自动启动面板"
+          desc={
+            autostartOn
+              ? '下次开机自动启动面板，并自动拉起 AstrBot / wechat-bot / qr-server'
+              : '关闭后开机需手动启动面板（服务需手动或守护拉起）'
+          }
+          checked={autostartOn}
+          onChange={(v) => toggleAutostart(v)}
+        />
+        <div className="mt-2 rounded-lg border border-border bg-surface-solid px-3 py-2 text-[12px] text-foreground-muted">
+          🛡️ 面板运行时会自动守护服务（每 30 秒健康检查，掉线自动拉起）；AstrBot
+          升级冲掉的群聊补丁也会自动重打，无需手动干预。
+        </div>
       </Section>
 
       {/* 外观主题 + DIY 配色 */}

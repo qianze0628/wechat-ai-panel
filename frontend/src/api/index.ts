@@ -39,6 +39,13 @@ export const settingsApi = {
     ),
 }
 
+// 开机自启 (Windows 注册表 Run 键)
+export const autostartApi = {
+  status: () => api.get<{ ok: boolean; enabled: boolean; method: string }>('/api/autostart'),
+  set: (enabled: boolean) =>
+    api.post<{ ok: boolean; enabled: boolean; message: string }>('/api/autostart', { enabled }),
+}
+
 export const panelApi = {
   status: () => api.get<PanelStatus>('/api/status'),
   env: () => api.get<EnvStatus>('/api/env'),
