@@ -1,5 +1,5 @@
-// 设置: 面板认证 / 备份 / 外观主题(DIY配色) / 实例路径 / 端口服务 / 系统与版本
-import { useState } from 'react'
+// 设置: 面板认证 / 备份 / 外观主题(DIY配色) / 实例路径 / 端口服务 / 系统与版本 / 常规(AstrBot 时区日志)
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   FolderCog,
@@ -16,8 +16,10 @@ import {
   RefreshCw,
   ExternalLink,
   Download,
+  Settings2,
 } from 'lucide-react'
 import { panelApi, authApi, settingsApi, autostartApi, updateApi } from '../api'
+import { api } from '../api/client'
 import { useTheme, ACCENT_PRESETS } from '../app/theme'
 import { toast } from '../app/toast'
 import Toggle from '../components/ui/Toggle'
@@ -61,6 +63,44 @@ export default function SettingsPage() {
     queryKey: ['autostart'],
     queryFn: autostartApi.status,
   })
+  // AstrBot 常规设置 (时区/日志)
+  const [astrTimezone, setAstrTimezone] = useState('')
+  const [astrLogLevel, setAstrLogLevel] = useState('INFO')
+  const [astrLogPath, setAstrLogPath] = useState('logs/astrbot.log')
+  const [savingAstr, setSavingAstr] = useState(false)
+
+  // 加载 cmd_config 的 timezone/log_level/log_file_path
+  useEffect(() => {
+    api
+      .get<{ ok: boolean; config: string }>('/api/cmd-config')
+      .then((r) => {
+        try {
+          const c = JSON.parse(r.config)
+          if (c.timezone) setAstrTimezone(String(c.timezone))
+          if (c.log_level) setAstrLogLevel(String(c.log_level))
+          if (c.log_file_path) setAstrLogPath(String(c.log_file_path))
+        } catch { /* ignore */ }
+      })
+      .catch(() => {})
+  }, [])
+
+  async function saveAstrConfig() {
+    setSavingAstr(true)
+    try {
+      // 读现有 config 后只改 3 个字段, 避免覆盖其他
+      const cur = await api.get<{ ok: boolean; config: string }>('/api/cmd-config')
+      const c = JSON.parse(cur.config)
+      c.timezone = astrTimezone
+      c.log_level = astrLogLevel
+      c.log_file_path = astrLogPath
+      const r = await api.post<{ ok: boolean; message: string }>('/api/cmd-config', { config: JSON.stringify(c) })
+      toast.success(r.message || '已保存')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSavingAstr(false)
+    }
+  }
   const autostartOn = autostart?.enabled ?? false
   async function toggleAutostart(v: boolean) {
     try {
@@ -482,6 +522,62 @@ export default function SettingsPage() {
                 </a>
               </div>
             )}
+          </div>
+        </div>
+      </Section>
+
+      {/* 常规设置 (AstrBot): 时区/日志级别/日志路径 */}
+      <Section icon={Settings2} title="常规 (AstrBot)">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">时区</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">AstrBot 时区 (如 Asia/Shanghai)</div>
+            </div>
+            <input
+              type="text"
+              value={astrTimezone}
+              onChange={(e) => setAstrTimezone(e.target.value)}
+              placeholder="Asia/Shanghai"
+              className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">日志级别</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">控制台日志级别</div>
+            </div>
+            <select
+              value={astrLogLevel}
+              onChange={(e) => setAstrLogLevel(e.target.value)}
+              className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            >
+              {['INFO', 'DEBUG', 'WARNING', 'ERROR'].map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-foreground">日志文件路径</div>
+              <div className="mt-0.5 text-[12px] text-foreground-muted">相对 data 目录</div>
+            </div>
+            <input
+              type="text"
+              value={astrLogPath}
+              onChange={(e) => setAstrLogPath(e.target.value)}
+              placeholder="logs/astrbot.log"
+              className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={saveAstrConfig}
+              className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {savingAstr ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              保存 AstrBot 设置
+            </button>
           </div>
         </div>
       </Section>
