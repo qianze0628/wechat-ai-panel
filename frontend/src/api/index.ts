@@ -72,6 +72,9 @@ export const updateApi = {
   check: (version: string) => api.get<UpdateCheckResult>(`/api/update-check?version=${encodeURIComponent(version)}`),
   downloadInfo: (asset: string) =>
     api.get<DownloadInfo>(`/api/update/download-info?asset=${encodeURIComponent(asset)}`),
+  // 面板内置自动更新 (下载→替换→重启)
+  apply: (version: string) =>
+    api.post<{ ok: boolean; message: string }>('/api/update/apply', { version }),
 }
 
 export const panelApi = {

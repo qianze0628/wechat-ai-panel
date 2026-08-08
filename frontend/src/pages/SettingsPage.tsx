@@ -15,12 +15,20 @@ import {
   Power,
   RefreshCw,
   ExternalLink,
+  Download,
 } from 'lucide-react'
 import { panelApi, authApi, settingsApi, autostartApi, updateApi } from '../api'
 import { useTheme, ACCENT_PRESETS } from '../app/theme'
 import { toast } from '../app/toast'
 import Toggle from '../components/ui/Toggle'
 import type { ReactNode } from 'react'
+
+// 从任意版本串提取规范语义版本 (容忍 "go-v0.2" → "0.2.0"、"v1.2.3-beta" → "1.2.3")
+function normalizeVersion(v: string): string {
+  const m = v.match(/(\d+)\.(\d+)(?:\.(\d+))?/)
+  if (!m) return v
+  return `${m[1]}.${m[2]}.${m[3] ?? '0'}`
+}
 
 export default function SettingsPage() {
   const { data, isLoading } = useQuery({
@@ -67,14 +75,17 @@ export default function SettingsPage() {
   // 更新检测 (GitHub latest + IP 判断国内镜像)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<Awaited<ReturnType<typeof updateApi.check>> | null>(null)
-  const [, setDownloadInfo] = useState<Awaited<ReturnType<typeof updateApi.downloadInfo>> | null>(null)
+  const [downloadInfo, setDownloadInfo] = useState<Awaited<ReturnType<typeof updateApi.downloadInfo>> | null>(null)
+  const [applying, setApplying] = useState(false)
   async function checkUpdate() {
     if (checkingUpdate) return
     setCheckingUpdate(true)
     setUpdateInfo(null)
     try {
-      const ver = (data as { version?: string })?.version ?? 'v0.1.9'
-      const info = await updateApi.check(ver)
+      // 从 status.version 提取规范语义版本号 (容忍 "go-v0.2" → "0.2.0" 前缀)
+      const ver = (data as { version?: string })?.version ?? ''
+      const norm = normalizeVersion(ver)
+      const info = await updateApi.check(norm)
       setUpdateInfo(info)
       if (!info.has_update && info.message) toast.success(info.message)
       // 若有新版本, 预取下载信息 (体现国内镜像判断)
@@ -87,6 +98,30 @@ export default function SettingsPage() {
       toast.error(e instanceof Error ? e.message : '检查更新失败')
     } finally {
       setCheckingUpdate(false)
+    }
+  }
+
+  // 一键自动更新 (面板内下载→替换→重启, 不跳 GitHub)
+  async function applyUpdateNow() {
+    const ver = updateInfo?.latest?.tag_name
+    if (!ver || applying) return
+    if (!window.confirm(`确定要更新到 ${ver} 吗？\n面板将自动下载并替换自身，完成后自动重启。`)) return
+    setApplying(true)
+    try {
+      const r = await updateApi.apply(ver)
+      if (r.ok) {
+        toast.success(r.message || '更新成功，面板即将重启')
+        // 更新期间面板会重启, 几秒后刷新状态
+        setTimeout(() => {
+          window.location.reload()
+        }, 8000)
+      } else {
+        toast.error(r.message || '更新失败')
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '自动更新失败')
+    } finally {
+      setApplying(false)
     }
   }
 
@@ -385,6 +420,7 @@ export default function SettingsPage() {
           <div className="text-[12px] text-foreground-muted">
             管理面板 · 微信 AI 机器人「得 Talk-AI」v2.6 ·{' '}
             {(data as { version?: string })?.version?.startsWith('go') ? 'Go 后端' : 'FastAPI 后端'}
+            {` · 当前版本 v${normalizeVersion((data as { version?: string })?.version ?? '0.0.0')}`}
           </div>
 
           {/* 检查更新 */}
@@ -419,14 +455,29 @@ export default function SettingsPage() {
               </div>
             )}
             {updateInfo?.latest && (
-              <a
-                href={updateInfo.latest.html_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-primary-500 hover:text-primary-600"
-              >
-                <ExternalLink size={12} /> 前往 GitHub 下载
-              </a>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={applyUpdateNow}
+                  disabled={applying || !updateInfo.has_update}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  {applying ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  {applying ? '更新中…' : '立即更新'}
+                </button>
+                {downloadInfo?.use_mirror && (
+                  <span className="text-[11.5px] text-foreground-muted/70">
+                    检测到国内网络，将走镜像加速 ({downloadInfo.region})
+                  </span>
+                )}
+                <a
+                  href={updateInfo.latest.html_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary-500 hover:text-primary-600"
+                >
+                  <ExternalLink size={12} /> 前往 GitHub 发布页
+                </a>
+              </div>
             )}
           </div>
         </div>
