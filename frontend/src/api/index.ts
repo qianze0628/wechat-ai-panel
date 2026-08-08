@@ -68,6 +68,37 @@ export interface DownloadInfo {
   direct_url: string
   final_url: string
 }
+// 插件中心 (AstrBot 插件管理)
+export interface AstrPlugin {
+  id: string
+  name: string
+  display_name: string
+  desc: string
+  version: string
+  author: string
+  repo: string
+  support_platforms: string[]
+  enabled: boolean
+  compatible: boolean
+  compatible_note: string
+  has_config: boolean
+  config_path: string
+  conf_schema_path: string
+}
+export const pluginCenterApi = {
+  list: () => api.get<{ ok: boolean; plugins: AstrPlugin[] }>('/api/plugin-center'),
+  config: (id: string) =>
+    api.get<{ ok: boolean; config: Record<string, unknown>; schema: unknown }>(
+      `/api/plugin-center/config?id=${encodeURIComponent(id)}`,
+    ),
+  saveConfig: (id: string, config: Record<string, unknown>) =>
+    api.post<{ ok: boolean; message: string }>(`/api/plugin-center/config?id=${encodeURIComponent(id)}`, { config }),
+  toggle: (id: string, enabled: boolean) =>
+    api.post<{ ok: boolean; message: string }>(
+      `/api/plugin-center/toggle?id=${encodeURIComponent(id)}&enabled=${enabled}`,
+    ),
+}
+
 export const updateApi = {
   check: (version: string) => api.get<UpdateCheckResult>(`/api/update-check?version=${encodeURIComponent(version)}`),
   downloadInfo: (asset: string) =>

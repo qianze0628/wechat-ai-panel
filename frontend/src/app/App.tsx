@@ -13,6 +13,8 @@ import LogsPage from '../pages/LogsPage'
 import BackupsPage from '../pages/BackupsPage'
 import SettingsPage from '../pages/SettingsPage'
 import PluginPage from '../pages/PluginPage'
+import PluginCenterPage from '../pages/PluginCenterPage'
+import PluginDetailPage from '../pages/PluginDetailPage'
 
 type AuthState = 'loading' | 'ok' | 'need-auth'
 
@@ -65,6 +67,8 @@ export default function App() {
         <Route path="/logs" element={<LogsPage />} />
         <Route path="/backups" element={<BackupsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/plugins" element={<PluginCenterPage />} />
+        <Route path="/plugins/:id" element={<PluginDetailPage />} />
         <Route path="/plugin/:id" element={<PluginPage />} />
         {/* 仅未知路径回退首页 */}
         <Route path="*" element={<Navigate to="/" replace />} />
