@@ -418,9 +418,12 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="text-[12px] text-foreground-muted">
-            管理面板 · 微信 AI 机器人「得 Talk-AI」v2.6 ·{' '}
-            {(data as { version?: string })?.version?.startsWith('go') ? 'Go 后端' : 'FastAPI 后端'}
-            {` · 当前版本 v${normalizeVersion((data as { version?: string })?.version ?? '0.0.0')}`}
+            管理面板 · 微信 AI 机器人 {(() => {
+              const ver = (data as { version?: string })?.version
+              // Go 版返回语义版本 (v0.2.1), Python/FastAPI 版 version 为空
+              const isGo = !!ver && /^v?\d+\.\d+/.test(ver)
+              return `${isGo ? 'Go 后端' : 'FastAPI 后端'}` + (ver ? ` · 当前版本 ${ver.startsWith('v') ? ver : `v${normalizeVersion(ver)}`}` : '')
+            })()}
           </div>
 
           {/* 检查更新 */}
