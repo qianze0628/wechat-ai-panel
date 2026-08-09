@@ -32,6 +32,8 @@ export interface EnvStatus {
 }
 
 export interface PanelStatus {
+  version?: string
+  platform?: string
   env: EnvStatus
   services: ServicesStatus
   creds: { username: string | null; password: string | null; source: string | null; password_changed: boolean }

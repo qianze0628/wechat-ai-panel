@@ -296,6 +296,30 @@ function CredsCard({
 }
 
 // ===== 概览页 =====
+
+// 机器人状态统计卡 (仿 AstrBot 欢迎页)
+function OverviewStat({
+  label,
+  value,
+  ok,
+  detail,
+}: {
+  label: string
+  value: string
+  ok?: boolean
+  detail?: string
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-medium text-foreground-muted">{label}</span>
+        <span className={`h-2 w-2 rounded-full ${ok ? 'bg-success' : 'bg-danger'}`} />
+      </div>
+      <div className="mt-1.5 text-[18px] font-bold text-foreground">{value}</div>
+      {detail && <div className="mt-0.5 truncate text-[11px] text-foreground-muted/70">{detail}</div>}
+    </div>
+  )
+}
 export default function OverviewPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['status'],
@@ -413,12 +437,40 @@ export default function OverviewPage() {
     <div className="mx-auto max-w-[1440px] space-y-5">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-foreground">概览</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">欢迎</h1>
         <p className="mt-0.5 text-[13px] text-foreground-muted">
           {data.config.cmd_config_mtime
             ? `AstrBot 配置最后修改: ${data.config.cmd_config_mtime}`
             : '本地实例状态一览'}
         </p>
+      </div>
+
+      {/* 机器人状态总览 (仿 AstrBot 欢迎页) */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <OverviewStat
+          label="AstrBot"
+          value={svc?.astrbot?.running ? '运行中' : '未启动'}
+          ok={svc?.astrbot?.running}
+          detail={`WebUI :${svc?.astrbot?.webui_port ?? 6185} · WS :${svc?.astrbot?.ws_port ?? 20129}`}
+        />
+        <OverviewStat
+          label="微信桥接"
+          value={svc?.wechat?.running ? '已连接' : '未连接'}
+          ok={svc?.wechat?.running}
+          detail={`API :${svc?.wechat?.api_port ?? 6189}`}
+        />
+        <OverviewStat
+          label="二维码服务"
+          value={svc?.qr?.running ? '运行中' : '未启动'}
+          ok={svc?.qr?.running}
+          detail="扫码登录支撑"
+        />
+        <OverviewStat
+          label="版本"
+          value={data.version ?? '?'}
+          ok
+          detail={`面板 v${data.version ?? '?'} · ${data.platform ?? ''}`}
+        />
       </div>
 
       {/* 部署进度时间线 */}
