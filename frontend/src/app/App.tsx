@@ -16,6 +16,7 @@ import PluginCenterPage from '../pages/PluginCenterPage'
 import PluginDetailPage from '../pages/PluginDetailPage'
 import PluginMarketPage from '../pages/PluginMarketPage'
 import ProvidersPage from '../pages/ProvidersPage'
+import ChatPage from '../pages/ChatPage'
 import PersonaRulesPage from '../pages/PersonaRulesPage'
 import KnowledgePage from '../pages/KnowledgePage'
 import OpenApiPage from '../pages/OpenApiPage'
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/plugins/:id" element={<PluginDetailPage />} />
         <Route path="/config" element={<ConfigFilePage />} />
         <Route path="/providers" element={<ProvidersPage />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/persona" element={<PersonaRulesPage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/openapi" element={<OpenApiPage />} />

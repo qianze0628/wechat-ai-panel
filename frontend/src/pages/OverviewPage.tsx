@@ -552,6 +552,13 @@ export default function OverviewPage() {
               href="/astrbot"
               target="_blank"
               rel="noreferrer"
+              onClick={(e) => {
+                // Tauri 桌面版: tauri:// 无 /astrbot 路由, 直接打开真实 WebUI
+                if ((window as unknown as Record<string, unknown>).__TAURI_INTERNALS__) {
+                  e.preventDefault()
+                  window.open('http://127.0.0.1:' + (svc?.astrbot?.webui_port ?? 6185), '_blank')
+                }
+              }}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-[13px] text-foreground-muted transition-colors hover:bg-primary-50 hover:text-primary-600"
             >
               <ExternalLink size={14} /> 打开 AstrBot WebUI
