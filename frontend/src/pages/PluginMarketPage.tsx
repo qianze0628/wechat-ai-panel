@@ -1,5 +1,5 @@
 // 插件市场 (仿 AstrBot 插件中心): 内置插件源浏览 + 安装 / 卸载
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Store, Download, Trash2, CheckCircle2, RefreshCw, Tags, Search } from 'lucide-react'
 import { api } from '../api/client'
@@ -18,7 +18,7 @@ interface MarketPlugin {
 }
 
 const marketApi = {
-  list: (q?: string) => api.get<{ ok: boolean; plugins: MarketPlugin[]; total?: number }>(`/api/market/plugins${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  list: (q?: string) => api.get<{ ok: boolean; plugins: MarketPlugin[]; total?: number; installed_count?: number }>(`/api/market/plugins${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   install: (id: string) => api.post<{ ok: boolean; message: string }>('/api/market/install', { id }),
   uninstall: (id: string) => api.post<{ ok: boolean; message: string }>('/api/market/uninstall', { id }),
 }
@@ -29,8 +29,18 @@ export default function PluginMarketPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['market-plugins', query],
     queryFn: () => marketApi.list(query),
-    refetchInterval: 30000,
+    // 有搜索时不轮询 (避免重拉全量), 无搜索 30s 轮询
+    refetchInterval: query ? false : 30000,
   })
+
+  // 输入防抖 400ms 自动搜索
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput.trim() !== query) setQuery(searchInput.trim())
+    }, 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput])
   const [busy, setBusy] = useState<string | null>(null)
   const [limit, setLimit] = useState(50)
 
@@ -58,7 +68,7 @@ export default function PluginMarketPage() {
   }
 
   const plugins = data.plugins ?? []
-  const installedCount = plugins.filter((p) => p.installed).length
+  const installedCount = data?.installed_count ?? plugins.filter((p) => p.installed).length
 
   return (
     <div className="mx-auto max-w-[900px] space-y-5">
