@@ -35,6 +35,7 @@ export default function PluginMarketPage() {
   const [category, setCategory] = useState('全部')
   const [sortBy, setSortBy] = useState<'default' | 'stars' | 'updated'>('default')
   const [detail, setDetail] = useState<MarketPlugin | null>(null)
+  const [brokenLogos, setBrokenLogos] = useState<Set<string>>(() => new Set())
   const [limit, setLimit] = useState(50)
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['market-plugins', query],
@@ -67,13 +68,14 @@ export default function PluginMarketPage() {
     }
   }
 
-  // 分类: 按 tags 聚合 (保留最高频 + "全部")
+  // 分类: 按 tags 聚合, 取高频前 14 (BUG-6: 数百分类挤压 → top-N)
   const categories = useMemo(() => {
-    const set = new Set<string>(['全部'])
+    const counts = new Map<string, number>()
     for (const p of data?.plugins ?? []) {
-      for (const t of p.tags ?? []) if (t) set.add(t)
+      for (const t of p.tags ?? []) if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
     }
-    return [...set]
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).slice(0, 14)
+    return ['全部', ...top]
   }, [data])
 
   // 筛选 + 排序 (仿 AstrBot: 分类 filter + stars/更新时间 sort)
@@ -181,8 +183,15 @@ export default function PluginMarketPage() {
           >
             {/* logo */}
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-solid">
-              {p.logo ? (
-                <img src={p.logo} alt="" className="h-full w-full object-cover" loading="lazy" />
+              {p.logo && !brokenLogos.has(p.id) ? (
+                <img
+                  src={p.logo}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  // BUG-5: logo 加载失败回退到图标
+                  onError={() => setBrokenLogos((prev) => new Set(prev).add(p.id))}
+                />
               ) : (
                 <Store size={18} className="text-primary-500" />
               )}
@@ -256,9 +265,9 @@ export default function PluginMarketPage() {
           <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-border bg-surface" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3.5 border-b border-border p-5">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-solid">
-                {detail.logo ? (
+                {detail.logo && !brokenLogos.has(detail.id) ? (
                   <img src={detail.logo} alt="" className="h-full w-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    onError={() => setBrokenLogos((prev) => new Set(prev).add(detail.id))} />
                 ) : (
                   <Store size={22} className="text-primary-500" />
                 )}
@@ -329,14 +338,14 @@ export default function PluginMarketPage() {
             <div className="flex justify-end gap-2 border-t border-border p-4">
               {detail.installed ? (
                 <button
-                  onClick={() => { act(detail.id, true); setDetail(null) }}
+                  onClick={async () => { await act(detail.id, true); setDetail(null) }}
                   className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-4 py-2 text-[12.5px] font-semibold text-danger hover:bg-danger/10"
                 >
                   <Trash2 size={13} /> 卸载
                 </button>
               ) : (
                 <button
-                  onClick={() => { act(detail.id, false); setDetail(null) }}
+                  onClick={async () => { await act(detail.id, false); setDetail(null) }}
                   className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-5 py-2 text-[13px] font-semibold text-white hover:opacity-90"
                 >
                   <Download size={14} /> 安装
