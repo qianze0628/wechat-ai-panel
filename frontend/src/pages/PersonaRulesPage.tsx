@@ -38,11 +38,22 @@ export default function PersonaRulesPage() {
     }
   }, [data])
 
+  // 函数式更新: 基于 prev 而非渲染闭包 (避免多次 setState 互相覆盖)
   function setPs(k: string, v: unknown) {
-    setCfg((prev) => (prev ? { ...prev, provider_settings: { ...ps, [k]: v } } : prev))
+    setSaved(false) // 编辑后复位"已保存"标记
+    setCfg((prev) => {
+      if (!prev) return prev
+      const curPs = (prev['provider_settings'] as Record<string, unknown>) ?? {}
+      return { ...prev, provider_settings: { ...curPs, [k]: v } }
+    })
   }
   function setCs(k: string, v: unknown) {
-    setCfg((prev) => (prev ? { ...prev, content_safety: { ...cs, [k]: v } } : prev))
+    setSaved(false)
+    setCfg((prev) => {
+      if (!prev) return prev
+      const curCs = (prev['content_safety'] as Record<string, unknown>) ?? {}
+      return { ...prev, content_safety: { ...curCs, [k]: v } }
+    })
   }
   function setKeywords(list: string[]) {
     setCs('internal_keywords', { ...internal, extra_keywords: list })
@@ -109,7 +120,15 @@ export default function PersonaRulesPage() {
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[13px] font-medium text-foreground">人格池 ({personaList.length})</span>
               <button
-                onClick={() => setPs('persona_pool', [...personaList, `persona_${personaList.length + 1}`])}
+                onClick={() => {
+                  // 取 max 现有序号 +1, 避免删除后重名
+                  let maxN = 0
+                  for (const n of personaList) {
+                    const m = n.match(/^persona_(\d+)$/)
+                    if (m) maxN = Math.max(maxN, Number(m[1]))
+                  }
+                  setPs('persona_pool', [...personaList, `persona_${maxN + 1}`])
+                }}
                 className="flex items-center gap-1 rounded-lg border border-primary-500/40 px-2.5 py-1 text-[12px] font-semibold text-primary-500 hover:bg-primary-500/10"
               >
                 <Plus size={12} /> 新增人格
@@ -133,10 +152,11 @@ export default function PersonaRulesPage() {
                   <button
                     onClick={() => {
                       const next = personaList.filter((_, idx) => idx !== i)
+                      const wasDefault = (ps['default_personality'] as string) === name
                       setPs('persona_pool', next.length ? next : ['*'])
-                      // 若删的是默认, 回退到第一个
-                      if ((ps['default_personality'] as string) === name && next.length) {
-                        setPs('default_personality', next[0])
+                      // 若删的是默认: 有剩余取第一个, 无剩余置 '*' (避免下拉悬空)
+                      if (wasDefault) {
+                        setPs('default_personality', next.length ? next[0] : '*')
                       }
                     }}
                     className="shrink-0 rounded-lg px-2 py-1 text-[11.5px] text-foreground-muted hover:bg-danger/10 hover:text-danger"

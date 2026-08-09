@@ -70,6 +70,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                       end={item.to === '/'}
                       title={item.label}
                       aria-label={item.label}
+                      aria-current={active ? 'page' : undefined}
                       className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
                         active
                           ? 'translate-x-1 bg-primary-50 font-semibold text-primary-600'

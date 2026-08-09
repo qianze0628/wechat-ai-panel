@@ -89,7 +89,15 @@ export default function KnowledgePage() {
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[13px] font-medium text-foreground">集合 ({names.length})</span>
               <button
-                onClick={() => setNames([...names, `kb_${names.length + 1}`])}
+                onClick={() => {
+                  // 取 max 现有序号 +1, 避免删除后重名
+                  let maxN = 0
+                  for (const n of names) {
+                    const m = n.match(/^kb_(\d+)$/)
+                    if (m) maxN = Math.max(maxN, Number(m[1]))
+                  }
+                  setNames([...names, `kb_${maxN + 1}`])
+                }}
                 className="flex items-center gap-1 rounded-lg border border-primary-500/40 px-2.5 py-1 text-[12px] font-semibold text-primary-500 hover:bg-primary-500/10"
               >
                 <Plus size={12} /> 新建集合

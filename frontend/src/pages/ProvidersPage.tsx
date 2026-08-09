@@ -68,8 +68,16 @@ export default function ProvidersPage() {
         if (!s2.key && s2.api_keys) s2.key = s2.api_keys as string[]
         return s2
       })
+      // modalities 字符串归一为数组 (如 "text,image" → ['text','image'])
+      const models = (data.providers ?? []).map((m) => {
+        const m2 = { ...m }
+        if (typeof m2.modalities === 'string') {
+          m2.modalities = (m2.modalities as string).split(',').map((x) => x.trim()).filter(Boolean)
+        }
+        return m2
+      })
       setSources(srcs)
-      setModels(data.providers ?? [])
+      setModels(models)
     }
   }, [data])
 
@@ -134,8 +142,8 @@ export default function ProvidersPage() {
     setModels((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)))
   }
   const updById = srcById
-  function isExpandedFor(m: ModelItem): boolean {
-    return expanded === `model_id_${m.id}`
+  function isExpandedFor(i: number): boolean {
+    return expanded === `model_i${i}`
   }
 
   return (
@@ -175,13 +183,13 @@ export default function ProvidersPage() {
         <div className="divide-y divide-border/60">
           {sources.length === 0 && <div className="p-4 text-[12.5px] text-foreground-muted">暂无连接源。点击"新增源"添加。</div>}
           {sources.map((s, i) => {
-            const isOpen = expanded === `src_${s.id}`
+            const isOpen = expanded === `src_i${i}`
             const keyStr = Array.isArray(s.key) ? (s.key[0] as string) ?? '' : String(s.key ?? '')
             return (
               <div key={i} className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => setExpanded(isOpen ? null : `src_${s.id}`)}
+                    onClick={() => setExpanded(isOpen ? null : `src_i${i}`)}
                     className="text-foreground-muted hover:text-foreground"
                   >
                     {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -292,10 +300,10 @@ export default function ProvidersPage() {
               <div key={i} className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => setExpanded(isExpandedFor(m) ? null : `model_id_${m.id}`)}
+                    onClick={() => setExpanded(isExpandedFor(i) ? null : `model_i${i}`)}
                     className="text-foreground-muted hover:text-foreground"
                   >
-                    {isExpandedFor(m) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    {isExpandedFor(i) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                   </button>
                   <button
                     onClick={() => updModel(i, { enable: !m.enable })}
@@ -323,7 +331,7 @@ export default function ProvidersPage() {
                     <Trash2 size={13} />
                   </button>
                 </div>
-                {isExpandedFor(m) && (
+                {isExpandedFor(i) && (
                   <div className="mt-3 grid grid-cols-1 gap-3 pl-9 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">模型 ID (唯一, 引用 key)</label>
