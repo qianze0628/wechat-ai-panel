@@ -3,8 +3,18 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PanelLeftClose, PanelLeftOpen, ServerCog, Sun, Moon } from 'lucide-react'
-import { navGroups, findNavItem } from '../../app/navigation'
+import { navGroups, findNavItem, NAV_ITEMS } from '../../app/navigation'
 import { useTheme } from '../../app/theme'
+
+// 判断 path 是否被更具体的独立导航项覆盖 (如 /plugins/market 是独立项, /plugins 不应高亮)
+function routeShadowed(pathname: string, parent: string): boolean {
+  // 仅当存在"更长的独立项"且当前 path 恰好等于它时, 父项不高亮
+  if (parent === '/') return false
+  const prefix = parent + '/'
+  if (!pathname.startsWith(prefix)) return false
+  // 该子路径是某个导航项的精确 to → 归它自己, 父不高亮
+  return NAV_ITEMS.some((n) => n.to !== parent && n.to === pathname)
+}
 import PageBackground from './PageBackground'
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -49,31 +59,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 </div>
               )}
               <div className="space-y-1">
-                {g.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    title={item.label}
-                    aria-label={item.label}
-                    className={({ isActive }) =>
-                      `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
-                        isActive
+                {g.items.map((item) => {
+                  // 激活: 精确匹配 或 (首页 '/' 仅精确); 子路由 (如 /plugins/:id) 归父级,
+                  // 但 /plugins/market 是独立项, 只高亮市场 (不做前缀匹配)
+                  const active = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/') && !routeShadowed(location.pathname, item.to))
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/'}
+                      title={item.label}
+                      aria-label={item.label}
+                      className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-all duration-160 ${
+                        active
                           ? 'translate-x-1 bg-primary-50 font-semibold text-primary-600'
                           : 'text-foreground-muted hover:translate-x-1 hover:bg-primary-50/60 hover:text-foreground'
-                      }`
-                    }
-                  >
-                    <item.icon size={18} strokeWidth={2} className="shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                    <span
-                      aria-hidden
-                      className={`sidebar-nav-indicator absolute right-2 rounded-full bg-primary-500 transition-opacity duration-180 ${
-                        location.pathname === item.to ? 'opacity-100' : 'opacity-0'
                       }`}
-                    />
-                  </NavLink>
-                ))}
+                    >
+                      <item.icon size={18} strokeWidth={2} className="shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      <span
+                        aria-hidden
+                        className={`sidebar-nav-indicator absolute right-2 rounded-full bg-primary-500 transition-opacity duration-180 ${
+                          active ? 'opacity-100' : 'opacity-0'
+                        }`}
+                      />
+                    </NavLink>
+                  )
+                })}
               </div>
             </div>
           ))}

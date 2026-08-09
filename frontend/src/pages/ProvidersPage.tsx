@@ -364,15 +364,33 @@ export default function ProvidersPage() {
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">能力 (modalities, 逗号分隔)</label>
-                      <input
-                        value={Array.isArray(m.modalities) ? (m.modalities as string[]).join(',') : ''}
-                        onChange={(e) =>
-                          updModel(i, { modalities: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })
-                        }
-                        placeholder="text,tool_use"
-                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
-                      />
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">能力 (modalities, 多选)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { v: 'text', label: '文本' },
+                          { v: 'image', label: '图片' },
+                          { v: 'video', label: '视频' },
+                          { v: 'file', label: '文件' },
+                          { v: 'tool_use', label: '工具调用' },
+                          { v: 'audio', label: '音频' },
+                        ].map((opt) => {
+                          const arr = Array.isArray(m.modalities) ? (m.modalities as string[]) : []
+                          const on = arr.includes(opt.v)
+                          return (
+                            <button
+                              key={opt.v}
+                              onClick={() =>
+                                updModel(i, { modalities: on ? arr.filter((x) => x !== opt.v) : [...arr, opt.v] })
+                              }
+                              className={`rounded-full px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+                                on ? 'bg-primary-500 text-white' : 'bg-surface-solid text-foreground-muted hover:bg-primary-500/10'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -1,7 +1,7 @@
 // 知识库 (仿 AstrBot): 集合配置 + 文件清单 (kb.db 同源, 不写库只管配置)
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Save, Library, Database, FolderOpen } from 'lucide-react'
+import { Loader2, Save, Library, Database, FolderOpen, Plus } from 'lucide-react'
 import { api } from '../api/client'
 import { toast } from '../app/toast'
 
@@ -84,30 +84,51 @@ export default function KnowledgePage() {
           <span className="text-[14px] font-semibold text-foreground">知识库配置</span>
         </div>
         <div className="space-y-4 p-4">
+          {/* 集合列表 (卡片) */}
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-foreground">知识库集合 (每行一个)</label>
-            <textarea
-              value={names.join('\n')}
-              onChange={(e) => setNames(e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
-              rows={3}
-              className="w-full max-w-[360px] resize-none rounded-lg border border-border bg-surface-solid p-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
-              placeholder="如: 我的知识库"
-            />
-            <div className="mt-1 text-[11px] text-foreground-muted">
-              在 AstrBot WebUI 创建集合后在此登记; 多个集合换行。
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[13px] font-medium text-foreground">集合 ({names.length})</span>
+              <button
+                onClick={() => setNames([...names, `kb_${names.length + 1}`])}
+                className="flex items-center gap-1 rounded-lg border border-primary-500/40 px-2.5 py-1 text-[12px] font-semibold text-primary-500 hover:bg-primary-500/10"
+              >
+                <Plus size={12} /> 新建集合
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {names.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border p-3 text-[12px] text-foreground-muted">
+                  暂无集合。在 AstrBot WebUI 上传文档后自动创建, 或点击"新建集合"预登记。
+                </div>
+              )}
+              {names.map((name, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-xl border border-border bg-surface-solid/50 px-3 py-2">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${name === defaultKb ? 'bg-primary-500' : 'bg-foreground-muted/30'}`} />
+                  <span className="flex-1 truncate font-mono text-[13px] text-foreground">{name}</span>
+                  {name === defaultKb && (
+                    <span className="shrink-0 rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[10.5px] font-medium text-primary-500">默认</span>
+                  )}
+                  <button
+                    onClick={() => setDefaultKb(name)}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11.5px] text-foreground-muted hover:bg-primary-500/10 hover:text-primary-500"
+                  >
+                    设默认
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = names.filter((_, idx) => idx !== i)
+                      setNames(next)
+                      if (defaultKb === name) setDefaultKb(next[0] ?? '')
+                    }}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11.5px] text-foreground-muted hover:bg-danger/10 hover:text-danger"
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-[13px] font-medium text-foreground">默认集合</label>
-              <input
-                type="text"
-                value={defaultKb}
-                onChange={(e) => setDefaultKb(e.target.value)}
-                placeholder="默认使用的集合名"
-                className="h-9 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
-              />
-            </div>
             <div>
               <label className="mb-1 block text-[13px] font-medium text-foreground">Agentic 模式</label>
               <button
