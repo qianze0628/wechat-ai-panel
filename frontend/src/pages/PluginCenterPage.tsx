@@ -9,6 +9,8 @@ import {
   Power,
   ChevronRight,
   Puzzle,
+  Store,
+  RefreshCw,
 } from 'lucide-react'
 import { pluginCenterApi, type AstrPlugin } from '../api'
 import { toast } from '../app/toast'
@@ -51,12 +53,28 @@ export default function PluginCenterPage() {
 
   return (
     <div className="mx-auto max-w-[900px] space-y-5">
-      {/* 标题 */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-foreground">插件中心</h1>
-        <p className="mt-0.5 text-[13px] text-foreground-muted">
-          AstrBot 插件管理与配置 · 共 {plugins.length} 个 · {enabledCount} 启用 · {compatibleCount} 适配微信
-        </p>
+      {/* 标题 + 操作 */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">插件中心</h1>
+          <p className="mt-0.5 text-[13px] text-foreground-muted">
+            AstrBot 插件管理与配置 · 共 {plugins.length} 个 · {enabledCount} 启用 · {compatibleCount} 适配微信
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/plugins/market"
+            className="flex items-center gap-1.5 rounded-lg border border-primary-500/40 px-3 py-1.5 text-[12.5px] font-semibold text-primary-500 hover:bg-primary-500/10"
+          >
+            <Store size={13} /> 插件市场
+          </Link>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-foreground-muted hover:bg-surface-solid"
+          >
+            <RefreshCw size={13} /> 刷新
+          </button>
+        </div>
       </div>
 
       {/* 插件列表 */}
