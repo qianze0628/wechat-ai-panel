@@ -14,12 +14,13 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [lastReplyCount, setLastReplyCount] = useState(0)
+  const [userId, setUserId] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // 轮询回复 (每 3s 查新回复)
   const { data: repliesData } = useQuery({
-    queryKey: ['chat-replies'],
-    queryFn: () => api.get<{ ok: boolean; replies: Reply[] }>('/api/chat/replies'),
+    queryKey: ['chat-replies', userId],
+    queryFn: () => api.get<{ ok: boolean; replies: Reply[] }>(`/api/chat/replies${userId ? `?user=${userId}` : ''}`),
     refetchInterval: 3000,
   })
 
@@ -49,7 +50,8 @@ export default function ChatPage() {
     setMsgs((prev) => [...prev, { role: 'user', text, time: new Date().toLocaleTimeString() }])
     setInput('')
     try {
-      const r = await api.get<{ ok: boolean; message: string }>(`/api/chat/send?text=${encodeURIComponent(text)}`)
+      const r = await api.get<{ ok: boolean; message: string; userId?: string }>(`/api/chat/send?text=${encodeURIComponent(text)}`)
+      if (r.userId) setUserId(r.userId)
       toast.success(r.message || '已发送')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '发送失败 (链路不通)')
@@ -70,7 +72,7 @@ export default function ChatPage() {
           </span>
         </div>
         <div className="flex items-center gap-2 text-[11.5px] text-foreground-muted">
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-success" /> 链路在线</span>
+          <span className="flex items-center gap-1"><span className={`h-1.5 w-1.5 rounded-full ${userId ? 'bg-success' : 'bg-warning'}`} /> {userId ? '链路在线' : '发送后可测试'}</span>
         </div>
       </div>
 
