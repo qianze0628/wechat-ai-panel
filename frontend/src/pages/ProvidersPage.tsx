@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Cable,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { toast } from '../app/toast'
@@ -53,15 +54,21 @@ const providerApi = {
 }
 
 export default function ProvidersPage() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: ['providers'], queryFn: providerApi.get })
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['providers'], queryFn: providerApi.get })
   const [sources, setSources] = useState<SourceItem[]>([])
   const [models, setModels] = useState<ModelItem[]>([])
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null) // 存 id (src_id / model_id), 删除后自然失效
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (data) {
-      setSources(data.provider_sources ?? [])
+      // 兼容: 真实 config 用 api_keys 字段, 页面统一映射到 key
+      const srcs = (data.provider_sources ?? []).map((s) => {
+        const s2 = { ...s }
+        if (!s2.key && s2.api_keys) s2.key = s2.api_keys as string[]
+        return s2
+      })
+      setSources(srcs)
       setModels(data.providers ?? [])
     }
   }, [data])
@@ -71,6 +78,19 @@ export default function ProvidersPage() {
     for (const s of sources) m.set(s.id ?? '', s)
     return m
   }, [sources])
+
+  // key 编辑: 保持数组语义 (兼容多 key), 单框编辑第一个
+  function updSourceKey(i: number, v: string) {
+    setSources((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== i) return s
+        const arr = Array.isArray(s.key) ? (s.key as string[]) : []
+        const next = arr.length > 1 ? [v, ...arr.slice(1)] : [v]
+        // 同时更新 api_keys (真实字段), key 保持兼容
+        return { ...s, key: next, api_keys: next } as SourceItem
+      }),
+    )
+  }
 
   async function saveAll() {
     setSaving(true)
@@ -85,6 +105,20 @@ export default function ProvidersPage() {
     }
   }
 
+  if (isError || (!isLoading && !data)) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-foreground-muted">
+        <AlertTriangle size={22} className="text-warning" />
+        <div className="text-[13.5px]">模型提供商加载失败 (后端可能未提供该接口)</div>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-foreground-muted hover:bg-surface-solid"
+        >
+          重试
+        </button>
+      </div>
+    )
+  }
   if (isLoading || !data) {
     return (
       <div className="flex h-full items-center justify-center text-foreground-muted">
@@ -100,8 +134,8 @@ export default function ProvidersPage() {
     setModels((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)))
   }
   const updById = srcById
-  function isExpandedFor(m: ModelItem, i: number): boolean {
-    return expanded === `model_i${i}` || expanded === `model_id_${m.id}`
+  function isExpandedFor(m: ModelItem): boolean {
+    return expanded === `model_id_${m.id}`
   }
 
   return (
@@ -141,13 +175,13 @@ export default function ProvidersPage() {
         <div className="divide-y divide-border/60">
           {sources.length === 0 && <div className="p-4 text-[12.5px] text-foreground-muted">暂无连接源。点击"新增源"添加。</div>}
           {sources.map((s, i) => {
-            const isOpen = expanded === `src_${s.id}` || expanded === `src_i${i}`
+            const isOpen = expanded === `src_${s.id}`
             const keyStr = Array.isArray(s.key) ? (s.key[0] as string) ?? '' : String(s.key ?? '')
             return (
               <div key={i} className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => setExpanded(isOpen ? null : `src_i${i}`)}
+                    onClick={() => setExpanded(isOpen ? null : `src_${s.id}`)}
                     className="text-foreground-muted hover:text-foreground"
                   >
                     {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
@@ -201,7 +235,7 @@ export default function ProvidersPage() {
                       <input
                         type="password"
                         value={keyStr}
-                        onChange={(e) => updSource(i, { key: [e.target.value] })}
+                        onChange={(e) => updSourceKey(i, e.target.value)}
                         placeholder="sk-..."
                         className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
                       />
@@ -242,7 +276,7 @@ export default function ProvidersPage() {
             onClick={() =>
               setModels((prev) => [
                 ...prev,
-                { id: `new/model`, model: '', enable: true, provider_source_id: sources[0]?.id ?? '' },
+                { id: `new_model_${Date.now()}_${prev.length}`, model: '', enable: true, provider_source_id: sources[0]?.id ?? '' },
               ])
             }
             className="flex shrink-0 items-center gap-1 rounded-lg border border-primary-500/40 px-2 py-1 text-[11.5px] font-semibold text-primary-500 hover:bg-primary-500/10"
@@ -258,10 +292,10 @@ export default function ProvidersPage() {
               <div key={i} className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => setExpanded(isExpandedFor(m, i) ? null : `model_i${i}`)}
+                    onClick={() => setExpanded(isExpandedFor(m) ? null : `model_id_${m.id}`)}
                     className="text-foreground-muted hover:text-foreground"
                   >
-                    {isExpandedFor(m, i) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    {isExpandedFor(m) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                   </button>
                   <button
                     onClick={() => updModel(i, { enable: !m.enable })}
@@ -289,6 +323,59 @@ export default function ProvidersPage() {
                     <Trash2 size={13} />
                   </button>
                 </div>
+                {isExpandedFor(m) && (
+                  <div className="mt-3 grid grid-cols-1 gap-3 pl-9 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">模型 ID (唯一, 引用 key)</label>
+                      <input
+                        value={m.id ?? ''}
+                        onChange={(e) => updModel(i, { id: e.target.value })}
+                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">模型名 (model)</label>
+                      <input
+                        value={m.model ?? ''}
+                        onChange={(e) => updModel(i, { model: e.target.value })}
+                        placeholder="如 deepseek-chat"
+                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">挂接提供商源</label>
+                      <select
+                        value={m.provider_source_id ?? ''}
+                        onChange={(e) => updModel(i, { provider_source_id: e.target.value })}
+                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
+                      >
+                        {sources.map((s) => (
+                          <option key={s.id} value={s.id}>{s.id}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">上下文长度 (max_context_tokens)</label>
+                      <input
+                        type="number"
+                        value={Number(m.max_context_tokens ?? 8192)}
+                        onChange={(e) => updModel(i, { max_context_tokens: Number(e.target.value) })}
+                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-[11.5px] font-medium text-foreground-muted">能力 (modalities, 逗号分隔)</label>
+                      <input
+                        value={Array.isArray(m.modalities) ? (m.modalities as string[]).join(',') : ''}
+                        onChange={(e) =>
+                          updModel(i, { modalities: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })
+                        }
+                        placeholder="text,tool_use"
+                        className="h-8 w-full rounded-lg border border-border bg-surface-solid px-2.5 text-[12.5px] text-foreground focus:border-primary-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

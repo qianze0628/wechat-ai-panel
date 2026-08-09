@@ -468,8 +468,7 @@ export default function OverviewPage() {
         <OverviewStat
           label="版本"
           value={data.version ?? '?'}
-          ok
-          detail={`面板 v${data.version ?? '?'} · ${data.platform ?? ''}`}
+          detail={data.platform ? `面板 v${data.version ?? '?'} · ${data.platform}` : `面板 v${data.version ?? '?'}`}
         />
       </div>
 
