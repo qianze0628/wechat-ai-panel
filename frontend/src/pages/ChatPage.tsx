@@ -8,6 +8,7 @@ import { toast } from '../app/toast'
 
 interface ChatMsg { role: 'user' | 'bot'; text: string; time: string }
 interface Reply { text: string; time: number }
+interface Contact { name?: string; hashId?: number }
 
 export default function ChatPage() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
@@ -15,7 +16,15 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [lastReplyCount, setLastReplyCount] = useState(0)
   const [userId, setUserId] = useState('')
+  const [contact, setContact] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // 联系人列表 (直连 wechat-bot 6189; 修复 C2: /api/whitelist 走 AstrBot bridge 拿不到)
+  const { data: wlData } = useQuery({
+    queryKey: ['chat-contacts'],
+    queryFn: () => api.get<{ ok: boolean; contacts?: Contact[] }>('/api/chat/contacts'),
+  })
+  const contacts = ((wlData?.contacts ?? []) as Contact[]).filter((c) => c.name)
 
   // 轮询回复 (每 3s 查新回复)
   const { data: repliesData } = useQuery({
@@ -50,7 +59,10 @@ export default function ChatPage() {
     setMsgs((prev) => [...prev, { role: 'user', text, time: new Date().toLocaleTimeString() }])
     setInput('')
     try {
-      const r = await api.get<{ ok: boolean; message: string; userId?: string }>(`/api/chat/send?text=${encodeURIComponent(text)}`)
+      const q = new URLSearchParams({ text })
+      if (contact) q.set('contact', contact)
+      else q.set('test', '1') // 自动 → 让 wechat-bot 用第一个联系人
+      const r = await api.get<{ ok: boolean; message: string; userId?: string }>(`/api/chat/send?${q.toString()}`)
       if (r.userId) setUserId(r.userId)
       toast.success(r.message || '已发送')
     } catch (e) {
@@ -106,22 +118,33 @@ export default function ChatPage() {
       </div>
 
       {/* 输入区 */}
-      <div className="flex items-center gap-2 rounded-b-2xl border border-border bg-surface p-3">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="输入消息测试链路… (回车发送)"
-          className="h-10 flex-1 rounded-lg border border-border bg-surface-solid px-3.5 text-[13.5px] text-foreground placeholder:text-foreground-muted/50 focus:border-primary-400 focus:outline-none"
-        />
-        <button
-          onClick={send}
-          disabled={sending || !input.trim()}
-          className="flex h-10 items-center gap-1.5 rounded-lg bg-primary-500 px-4 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
-        >
-          {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} 发送
-        </button>
+      <div className="rounded-b-2xl border border-border bg-surface p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-[11.5px] text-foreground-muted">测试目标:</span>
+          <select value={contact} onChange={(e) => setContact(e.target.value)} className="h-8 flex-1 rounded-lg border border-border bg-surface-solid px-2 text-[12px] text-foreground">
+            <option value="">自动 (第一个联系人)</option>
+            {contacts.map((c) => (
+              <option key={c.hashId ?? c.name} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && send()}
+            placeholder="输入消息测试链路… (回车发送)"
+            className="h-10 flex-1 rounded-lg border border-border bg-surface-solid px-3.5 text-[13.5px] text-foreground placeholder:text-foreground-muted/50 focus:border-primary-400 focus:outline-none"
+          />
+          <button
+            onClick={send}
+            disabled={sending || !input.trim()}
+            className="flex h-10 items-center gap-1.5 rounded-lg bg-primary-500 px-4 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-40"
+          >
+            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} 发送
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 text-center text-[11px] text-foreground-muted">

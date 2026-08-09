@@ -84,12 +84,38 @@ export default function PluginDetailPage() {
   }, [confData])
 
   const schema = confData?.schema as Record<string, SchemaSection> | undefined
-  const schemaSections = useMemo(() => Object.entries(schema ?? {}), [schema])
+  // 归一化: 兼容扁平 schema (顶层项直接是配置, 无 items) — 修复 SpectreCore 等插件
+  // "回复所有群聊/启用私聊回复/过滤思考过程" 等开关之前显示不出来
+  const schemaSections = useMemo(() => {
+    const flat: Record<string, SchemaItem> = {}
+    const groups: Record<string, SchemaSection> = {}
+    for (const [key, val] of Object.entries(schema ?? {})) {
+      if (val && typeof val === 'object' && 'items' in val && (val.items ?? null) !== null && typeof val.items === 'object') {
+        groups[key] = val
+      } else if (val && typeof val === 'object' && ('type' in val || 'default' in val)) {
+        // 扁平配置项 (type/default/description/hint/options 直接挂在顶层)
+        flat[key] = val as SchemaItem
+      } else if (val && typeof val === 'object') {
+        groups[key] = val
+      }
+    }
+    // 扁平项归入 "通用" 分组 (无分组时)
+    const out = Object.entries(groups)
+    if (Object.keys(flat).length > 0) {
+      out.unshift(['default', { description: '通用', items: flat }])
+    }
+    return out
+  }, [schema])
   // schema 声明过的所有键 (保存时只保留这些)
   const schemaKeys = useMemo(() => {
     const set = new Set<string>()
     for (const section of schemaSections) {
-      for (const k of Object.keys(section[1]?.items ?? {})) set.add(k)
+      const items = section[1]?.items
+      if (items && typeof items === 'object') {
+        for (const k of Object.keys(items)) set.add(k)
+      } else if (items && typeof items === 'object' && 'type' in (items as object)) {
+        set.add(section[0])
+      }
     }
     return set
   }, [schemaSections])
@@ -140,9 +166,64 @@ export default function PluginDetailPage() {
     })
   }
 
+  function renderSubField(parent: string, key: string, item: SchemaItem, parentVal: Record<string, unknown>) {
+    const type = (item.type as string) ?? 'string'
+    const value = parentVal[key]
+    if (type === 'bool') {
+      return (
+        <button onClick={() => setValue(parent, { ...parentVal, [key]: !value })} className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-primary-500' : 'bg-surface-solid'}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${value ? 'left-[22px]' : 'left-0.5'}`} />
+        </button>
+      )
+    }
+    if (item.options && item.options.length > 0) {
+      return (
+        <select value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground">
+          {item.options.map((opt, i) => {
+            const label = typeof opt === 'string' ? opt : (opt.label ?? opt.value ?? '')
+            const val = typeof opt === 'string' ? opt : (opt.value ?? '')
+            return <option key={i} value={val}>{label}</option>
+          })}
+        </select>
+      )
+    }
+    if (type === 'int' || type === 'float') {
+      return (
+        <input type="number" value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value === '' ? '' : Number(e.target.value) })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+      )
+    }
+    if (type === 'list') {
+      const listVal = Array.isArray(value) ? value.join(', ') : String(value ?? '')
+      return (
+        <input type="text" value={listVal} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="多个值用逗号分隔" className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+      )
+    }
+    return (
+      <input type="text" value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+    )
+  }
+
   function renderField(key: string, item: SchemaItem) {
-    const type = item.type ?? 'string'
+    const type = (item.type as string) ?? 'string'
     const value = config[key]
+    // object → 递归渲染其 items (对齐 AstrBot: model_frequency.probability 等嵌套)
+    if (type === 'object' && item.items && typeof item.items === 'object') {
+      const sub = config[key] as Record<string, unknown> | undefined ?? {}
+      const subItems = item.items as Record<string, SchemaItem>
+      return (
+        <div className="w-full space-y-2.5">
+          {Object.entries(subItems).map(([sk, sv]) => (
+            <div key={sk} className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-medium text-foreground">{sv.description || sk}</div>
+                {sv.hint && <div className="mt-0.5 text-[10.5px] text-foreground-muted/70">{sv.hint}</div>}
+              </div>
+              <div className="shrink-0">{renderSubField(key, sk, sv, sub)}</div>
+            </div>
+          ))}
+        </div>
+      )
+    }
 
     // bool → 开关
     if (type === 'bool') {
