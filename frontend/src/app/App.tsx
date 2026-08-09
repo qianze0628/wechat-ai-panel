@@ -22,6 +22,7 @@ import KnowledgePage from '../pages/KnowledgePage'
 import OpenApiPage from '../pages/OpenApiPage'
 import AgentPage from '../pages/AgentPage'
 import ConfigFilePage from '../pages/ConfigFilePage'
+import AstrbotConfigPage from '../pages/AstrbotConfigPage'
 import StatsPage from '../pages/StatsPage'
 
 type AuthState = 'loading' | 'ok' | 'need-auth'
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/plugins/market" element={<PluginMarketPage />} />
         <Route path="/plugins/:id" element={<PluginDetailPage />} />
         <Route path="/config" element={<ConfigFilePage />} />
+        <Route path="/astrbot-config" element={<AstrbotConfigPage />} />
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/persona" element={<PersonaRulesPage />} />

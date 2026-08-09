@@ -48,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
   // 更多功能
   { to: '/messages', label: '对话数据', icon: MessagesSquare, description: '微信消息记录与对话查看', group: '更多功能' },
   { to: '/config', label: '配置文件', icon: FileCode2, description: '查看与编辑 AstrBot cmd_config', group: '更多功能' },
+  { to: '/astrbot-config', label: 'AstrBot 配置', icon: Settings2, description: '完整设置 (Agent/模型/人格/知识库/搜索)', group: '更多功能' },
   { to: '/logs', label: '平台日志', icon: TerminalSquare, description: '终端式日志查看与搜索', group: '更多功能' },
   { to: '/stats', label: '数据统计', icon: BarChart3, description: '消息量/活跃度等统计', group: '更多功能' },
   { to: '/rules', label: '自定义规则', icon: ShieldCheck, description: '内容安全与关键词过滤规则', group: '更多功能' },
