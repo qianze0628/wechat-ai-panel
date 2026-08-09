@@ -1,7 +1,7 @@
 // 插件市场 (仿 AstrBot 插件中心): 内置插件源浏览 + 安装 / 卸载
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Store, Download, Trash2, CheckCircle2, RefreshCw, Tags } from 'lucide-react'
+import { Loader2, Store, Download, Trash2, CheckCircle2, RefreshCw, Tags, Search } from 'lucide-react'
 import { api } from '../api/client'
 import { toast } from '../app/toast'
 
@@ -18,18 +18,21 @@ interface MarketPlugin {
 }
 
 const marketApi = {
-  list: () => api.get<{ ok: boolean; plugins: MarketPlugin[] }>('/api/market/plugins'),
+  list: (q?: string) => api.get<{ ok: boolean; plugins: MarketPlugin[]; total?: number }>(`/api/market/plugins${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   install: (id: string) => api.post<{ ok: boolean; message: string }>('/api/market/install', { id }),
   uninstall: (id: string) => api.post<{ ok: boolean; message: string }>('/api/market/uninstall', { id }),
 }
 
 export default function PluginMarketPage() {
+  const [query, setQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['market-plugins'],
-    queryFn: marketApi.list,
-    refetchInterval: 20000,
+    queryKey: ['market-plugins', query],
+    queryFn: () => marketApi.list(query),
+    refetchInterval: 30000,
   })
   const [busy, setBusy] = useState<string | null>(null)
+  const [limit, setLimit] = useState(50)
 
   async function act(id: string, installed: boolean) {
     if (busy) return
@@ -65,7 +68,7 @@ export default function PluginMarketPage() {
             <Store size={20} className="text-primary-500" /> 插件市场
           </h1>
           <p className="mt-0.5 text-[13px] text-foreground-muted">
-            AstrBot 插件源 · {plugins.length} 个 · 已装 {installedCount}
+            AstrBot 官方商店 · {data?.total ?? plugins.length} 个 · 已装 {installedCount}
           </p>
         </div>
         <button
@@ -76,8 +79,38 @@ export default function PluginMarketPage() {
         </button>
       </div>
 
+      {/* 搜索框 */}
+      <div className="flex items-center gap-2">
+        <Search size={15} className="shrink-0 text-foreground-muted/60" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setQuery(searchInput.trim())
+              setLimit(50)
+            }
+          }}
+          placeholder="搜索插件名称/描述/作者… (回车搜索)"
+          className="h-9 w-full rounded-lg border border-border bg-surface-solid px-3 text-[13px] text-foreground placeholder:text-foreground-muted/50 focus:border-primary-400 focus:outline-none"
+        />
+        {query && (
+          <button
+            onClick={() => {
+              setQuery('')
+              setSearchInput('')
+              setLimit(50)
+            }}
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-foreground-muted hover:bg-surface-solid"
+          >
+            清除
+          </button>
+        )}
+      </div>
+
       <div className="space-y-2.5">
-        {plugins.map((p) => (
+        {plugins.slice(0, limit).map((p) => (
           <div key={p.id} className="flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-500">
               <Store size={20} />
@@ -129,6 +162,23 @@ export default function PluginMarketPage() {
           </div>
         ))}
       </div>
+
+      {/* 加载更多 (大列表分页) */}
+      {plugins.length > limit && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => setLimit((l) => l + 50)}
+            className="rounded-lg border border-border px-5 py-2 text-[12.5px] text-foreground-muted hover:bg-surface-solid"
+          >
+            加载更多 ({Math.min(limit, plugins.length)}/{plugins.length})
+          </button>
+        </div>
+      )}
+      {plugins.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border p-8 text-center text-[12.5px] text-foreground-muted">
+          {query ? `没有找到匹配 "${query}" 的插件` : '暂无插件'}
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-surface p-3.5 text-[12px] text-foreground-muted">
         安装流程: git clone (镜像加速) → 自动安装 requirements 依赖 → 重启 AstrBot 生效。卸载会删除插件目录, 配置数据保留在 data/。
