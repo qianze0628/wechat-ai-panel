@@ -8,7 +8,32 @@ from .config import CONFIG
 
 
 def _which(name: str):
-    return shutil.which(name) or ""
+    found = shutil.which(name) or ""
+    if found:
+        return found
+    # 修复 (2026-08-12): 便携工具目录 (与 Go 版 which2 一致). 全新电脑面板自装
+    # ~/.wechat-ai-panel/ 下的 node/git 后, PATH 快照找不到 → 误报"未安装"。
+    home = os.path.expanduser("~")
+    ext = ".exe"
+    if os.name == "nt":
+        name_check = name + ".exe"
+    else:
+        name_check = name
+    portable_dirs = [
+        os.path.join(home, ".wechat-ai-panel", "nodejs"),
+        os.path.join(home, ".wechat-ai-panel", "git", "cmd"),
+        os.path.join(home, ".wechat-ai-panel", "git", "mingw64", "bin"),
+        os.path.join(home, ".wechat-ai-panel", "git"),
+    ]
+    for d in portable_dirs:
+        cand = os.path.join(d, name_check)
+        if os.path.isfile(cand):
+            return cand
+        if os.name == "nt" and name == "npm":
+            cand2 = os.path.join(d, "npm.cmd")
+            if os.path.isfile(cand2):
+                return cand2
+    return ""
 
 
 def detect_env():
