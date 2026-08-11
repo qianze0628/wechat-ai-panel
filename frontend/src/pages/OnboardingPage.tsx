@@ -85,8 +85,18 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (dirsInitialized || !st?.config) return
     setDirsInitialized(true)
-    if (!wechatDir && st.config.wechat_bot_dir) setWechatDir(st.config.wechat_bot_dir)
-    if (!astrbotDir && st.config.astrbot_root) setAstrbotDir(st.config.astrbot_root)
+    // 修复 (2026-08-12): 仅当后端检测到目录存在时才预填; 不存在 (如无 D 盘但配置 D:\路径)
+    // 就不填, 让安装走默认相对路径 (exe 同目录, 必然可写), 避免用户照点错误 D 盘路径。
+    if (!wechatDir && st.config.wechat_bot_dir) {
+      const exists = (st.env?.wechat_bot as { installed?: boolean } | undefined)?.installed
+      if (exists) setWechatDir(st.config.wechat_bot_dir)
+      else setWechatDir('')
+    }
+    if (!astrbotDir && st.config.astrbot_root) {
+      const exists = (st.env?.astrbot_root as { exists?: boolean } | undefined)?.exists
+      if (exists) setAstrbotDir(st.config.astrbot_root)
+      else setAstrbotDir('')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st])
   const [showInstalledDialog, setShowInstalledDialog] = useState(false)
