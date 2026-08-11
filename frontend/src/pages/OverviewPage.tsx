@@ -593,16 +593,23 @@ export default function OverviewPage() {
         <div className="glass-panel p-5">
           <div className="mb-3 text-[14px] font-semibold text-foreground">实例信息</div>
           <div className="space-y-1.5 text-[12.5px]">
-            {[
-              ['wechat-bot 目录', data.config.wechat_bot_dir],
-              ['AstrBot 根目录', data.config.astrbot_root],
-              ['AstrBot 数据目录', data.config.astrbot_data_dir],
-              ['cmd_config', data.config.cmd_config],
-            ].map(([k, v]) => (
-              <div key={k} className="flex gap-2">
-                <span className="w-28 shrink-0 text-foreground-muted/80">{k}</span>
-                <span className="mono min-w-0 flex-1 truncate text-foreground-muted" title={v}>
-                  {v}
+            {/* 修复 (2026-08-11): 显示真实存在性 (绿点=存在, 红点=缺失), 不再假"有目录" */}
+            {(
+              [
+                { label: 'wechat-bot 目录', value: data.config.wechat_bot_dir, ok: !!data.env?.wechat_bot?.installed },
+                { label: 'AstrBot 根目录', value: data.config.astrbot_root, ok: !!data.env?.astrbot_root?.exists },
+                { label: 'AstrBot 数据目录', value: data.config.astrbot_data_dir, ok: !!data.env?.astrbot_data_dir?.exists },
+                { label: 'cmd_config', value: data.config.cmd_config, ok: !!data.env?.cmd_config?.exists },
+              ] as { label: string; value: string; ok: boolean }[]
+            ).map((row) => (
+              <div key={row.label} className="flex items-center gap-2">
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.ok ? 'bg-success' : 'bg-danger'}`}
+                  title={row.ok ? '存在' : '不存在'}
+                />
+                <span className="w-28 shrink-0 text-foreground-muted/80">{row.label}</span>
+                <span className="mono min-w-0 flex-1 truncate text-foreground-muted" title={row.value}>
+                  {row.value}
                 </span>
               </div>
             ))}

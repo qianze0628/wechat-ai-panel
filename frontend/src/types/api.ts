@@ -28,6 +28,7 @@ export interface EnvStatus {
   astrbot: EnvItem
   wechat_bot: EnvItem & { deps_ready: boolean }
   astrbot_root: EnvItem
+  astrbot_data_dir: EnvItem
   cmd_config: EnvItem
 }
 

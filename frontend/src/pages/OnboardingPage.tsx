@@ -1,5 +1,5 @@
 // 部署向导: 环境检查 → 安装依赖 → 配置 OneBot → 启动服务 → 微信扫码 → 配置模型
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { toast } from '../app/toast'
@@ -76,8 +76,19 @@ export default function OnboardingPage() {
     if (ua.includes('linux') || ua.includes('x11')) return 'linux'
     return 'windows'
   })
+  // 修复 (2026-08-11): 输入框预填配置里的默认目录 (config.astrbot_root),
+  // 避免用户留空→装到未知位置, 或手填不存在的 D: 盘导致 AstrBot 启动失败。
+  // 数据到达后仅初始化一次 (用户已手填则不动)
   const [wechatDir, setWechatDir] = useState('')
   const [astrbotDir, setAstrbotDir] = useState('')
+  const [dirsInitialized, setDirsInitialized] = useState(false)
+  useEffect(() => {
+    if (dirsInitialized || !st?.config) return
+    setDirsInitialized(true)
+    if (!wechatDir && st.config.wechat_bot_dir) setWechatDir(st.config.wechat_bot_dir)
+    if (!astrbotDir && st.config.astrbot_root) setAstrbotDir(st.config.astrbot_root)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st])
   const [showInstalledDialog, setShowInstalledDialog] = useState(false)
   // 安装弹窗: null=关闭, 'select'=选平台, 'progress'=安装进度
   const [installDialog, setInstallDialog] = useState<'select' | 'progress' | null>(null)
