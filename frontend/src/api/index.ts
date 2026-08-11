@@ -109,8 +109,9 @@ export const pluginCenterApi = {
 
 export const updateApi = {
   check: (version: string) => api.get<UpdateCheckResult>(`/api/update-check?version=${encodeURIComponent(version)}`),
-  downloadInfo: (asset: string) =>
-    api.get<DownloadInfo>(`/api/update/download-info?asset=${encodeURIComponent(asset)}`),
+  // 修复 (2026-08-11): 资产名由后端按平台自算, 前端只传目标版本 (之前传 asset 可能取错平台 → 404)
+  downloadInfo: (_asset?: string, version?: string) =>
+    api.get<DownloadInfo>(`/api/update/download-info${version ? `?version=${encodeURIComponent(version)}` : ''}`),
   // 面板内置自动更新 (下载→替换→重启)
   apply: (version: string) =>
     api.post<{ ok: boolean; message: string }>('/api/update/apply', { version }),

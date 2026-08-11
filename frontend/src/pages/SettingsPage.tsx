@@ -154,9 +154,10 @@ export default function SettingsPage() {
       setUpdateInfo(info)
       if (!info.has_update && info.message) toast.success(info.message)
       // 若有新版本, 预取下载信息 (体现国内镜像判断)
+      // 修复 (2026-08-11): 资产名由后端按平台自算 (download-info 传 version), 不再用 assets[0]
+      // 或前端拼名 — 之前取错平台/名字不匹配 → 404
       if (info.has_update && info.latest?.assets?.length) {
-        const asset = info.latest.assets[0].name
-        const dl = await updateApi.downloadInfo(asset)
+        const dl = await updateApi.downloadInfo(undefined, info.latest.tag_name)
         setDownloadInfo(dl)
       }
     } catch (e) {
