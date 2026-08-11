@@ -154,6 +154,16 @@ export const panelApi = {
     api.post<{ status: string; message: string; chatIds: string[]; adminIds: string[] }>('/api/whitelist', payload),
   whitelistSuper: (superAdminIds: string[]) =>
     api.post<{ ok: boolean; message: string; superAdminIds: string[] }>('/api/whitelist/super', { superAdminIds }),
+  // 群聊配置 (回复所有群聊开关, 同步 wechat-bot .env ROOM_WHITELIST)
+  wechatEnvGet: () =>
+    api.get<{ ok: boolean; config: { replyAllGroups: boolean; room_whitelist?: string; room_member_exclude?: string; no_mention_rooms?: string; room_chat_enabled?: boolean; bot_name?: string } }>('/api/wechat-env'),
+  wechatEnvSave: (payload: {
+    reply_all_groups?: boolean
+    room_whitelist?: string
+    room_member_exclude?: string
+    no_mention_rooms?: string
+    room_chat_enabled?: boolean
+  }) => api.post<{ ok: boolean; message: string }>('/api/wechat-env', payload),
   plugins: () => api.get<{ ok: boolean; plugins: PluginInfo[] }>('/api/plugins'),
   messages: (params: { contact?: string; search?: string; limit?: number }) => {
     const q = new URLSearchParams()

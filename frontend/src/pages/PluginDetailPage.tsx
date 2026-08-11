@@ -66,20 +66,41 @@ export default function PluginDetailPage() {
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
 
-  // 初始化: schema 默认值 + 已有配置合并
+  // 初始化: schema 默认值 + 已有配置合并 (嵌套结构: section 名 → items)
+  // 修复 2026-08-10: 之前扁平化成顶层键 → 保存后插件代码读 config['API_Settings']['enable_api_auth']
+  // 读不到嵌套路径 → 开关改了不生效 (AstrBot 插件配置都是 section 嵌套结构)
   useEffect(() => {
     if (!confData) return
     const merged: Record<string, unknown> = {}
     const schema = confData.schema as Record<string, SchemaSection> | undefined
     if (schema) {
-      for (const section of Object.values(schema)) {
-        for (const [k, item] of Object.entries(section?.items ?? {})) {
-          merged[k] = defaultValue(item)
+      for (const [secName, section] of Object.entries(schema)) {
+        const items = section?.items
+        const isFlat = !items ||
+          (typeof items === 'object' && !Array.isArray(items) && Object.keys(items as object).length === 0) ||
+          (typeof items === 'object' && 'type' in (items as object))
+        if (!isFlat && typeof items === 'object') {
+          // 分组: section 名 → items 嵌套 (AstrBot 标准结构: section.items = 配置项)
+          const secObj: Record<string, unknown> = {}
+          for (const [k, item] of Object.entries(items as Record<string, SchemaItem>)) {
+            secObj[k] = defaultValue(item)
+          }
+          merged[secName] = secObj
+        } else {
+          // 扁平项 (整个 section 本身就是配置项, 如 SpectreCore 的 enable_all_groups)
+          merged[secName] = defaultValue(section as SchemaItem)
         }
       }
     }
-    // 已有配置覆盖默认
-    Object.assign(merged, confData.config ?? {})
+    // 已有配置覆盖默认 (保持嵌套结构)
+    const existing = confData.config ?? {}
+    for (const [k, v] of Object.entries(existing)) {
+      if (typeof v === 'object' && v !== null && merged[k] && typeof merged[k] === 'object') {
+        merged[k] = { ...(merged[k] as object), ...v }
+      } else {
+        merged[k] = v
+      }
+    }
     setConfig(merged)
   }, [confData])
 
@@ -90,12 +111,16 @@ export default function PluginDetailPage() {
     const flat: Record<string, SchemaItem> = {}
     const groups: Record<string, SchemaSection> = {}
     for (const [key, val] of Object.entries(schema ?? {})) {
-      if (val && typeof val === 'object' && 'items' in val && (val.items ?? null) !== null && typeof val.items === 'object') {
-        groups[key] = val
-      } else if (val && typeof val === 'object' && ('type' in val || 'default' in val)) {
-        // 扁平配置项 (type/default/description/hint/options 直接挂在顶层)
+      if (!val || typeof val !== 'object') continue
+      const items = (val as any)?.items
+      const isFlatSection = !items ||
+        (typeof items === 'object' && !Array.isArray(items) && Object.keys(items as object).length === 0) ||
+        ('type' in (val as object) && !(items && typeof items === 'object' && Object.keys(items as object).length > 0 && !('type' in (items as object))))
+      if (isFlatSection) {
+        // 扁平配置项 (整个 section 就是一项配置: type/default 直接挂在顶层, 如 SpectreCore)
         flat[key] = val as SchemaItem
-      } else if (val && typeof val === 'object') {
+      } else {
+        // 分组 (AstrBot 标准: section.items = 配置项集合)
         groups[key] = val
       }
     }
@@ -106,20 +131,6 @@ export default function PluginDetailPage() {
     }
     return out
   }, [schema])
-  // schema 声明过的所有键 (保存时只保留这些)
-  const schemaKeys = useMemo(() => {
-    const set = new Set<string>()
-    for (const section of schemaSections) {
-      const items = section[1]?.items
-      if (items && typeof items === 'object') {
-        for (const k of Object.keys(items)) set.add(k)
-      } else if (items && typeof items === 'object' && 'type' in (items as object)) {
-        set.add(section[0])
-      }
-    }
-    return set
-  }, [schemaSections])
-
   if (confLoading || !plugin) {
     return (
       <div className="flex h-full items-center justify-center text-foreground-muted">
@@ -131,10 +142,25 @@ export default function PluginDetailPage() {
   async function saveConfig() {
     setSaving(true)
     try {
-      // 清掉空串数字键 (避免 config.json 出现 "key": "")
+      // 清掉空串值 (避免 config.json 出现 "key": ""), 嵌套 section 递归清理
       const cleaned: Record<string, unknown> = {}
       for (const [k, v] of Object.entries(config)) {
-        if (v !== '') cleaned[k] = v
+        if (k === 'default' && typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          // 扁平项分组: 展开到顶层 (插件读取 config['enable_all_groups'] 而非 config['default'][...])
+          for (const [sk, sv] of Object.entries(v as Record<string, unknown>)) {
+            if (sv !== '') cleaned[sk] = sv
+          }
+          continue
+        }
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          const sub: Record<string, unknown> = {}
+          for (const [sk, sv] of Object.entries(v as Record<string, unknown>)) {
+            if (sv !== '') sub[sk] = sv
+          }
+          cleaned[k] = sub
+        } else if (v !== '') {
+          cleaned[k] = v
+        }
       }
       const r = await pluginCenterApi.saveConfig(pluginId, cleaned)
       toast.success(r.message || '配置已保存')
@@ -155,30 +181,46 @@ export default function PluginDetailPage() {
     }
   }
 
-  // 设置值: 移除 schema 未声明的键 (schema 变更后旧键不残留)
-  function setValue(key: string, v: unknown) {
+  // 设置某个键的值: 扁平项 (default) 存顶层, 分组项存 config[sectionName][key]
+  function setSectionValue(sectionName: string, key: string, v: unknown) {
     setConfig((prev) => {
-      const next = { ...prev, [key]: v }
-      for (const k of Object.keys(next)) {
-        if (!schemaKeys.has(k)) delete next[k]
+      const next = { ...prev }
+      if (sectionName === 'default') {
+        next[key] = v // 扁平项: 顶层键
+      } else {
+        const sec = { ...((next[sectionName] ?? {}) as Record<string, unknown>) }
+        sec[key] = v
+        next[sectionName] = sec
       }
       return next
     })
   }
 
-  function renderSubField(parent: string, key: string, item: SchemaItem, parentVal: Record<string, unknown>) {
+  // 渲染 object 嵌套字段 (parent = sectionName, objKey = 外层 object 键, sub 值存 config[parent][objKey])
+  function renderSubField(parent: string, objKey: string, key: string, item: SchemaItem, parentVal: Record<string, unknown>) {
     const type = (item.type as string) ?? 'string'
     const value = parentVal[key]
+    const setSub = (v: unknown) => {
+      setConfig((prev) => {
+        const next = { ...prev }
+        const sec = { ...((next[parent] ?? {}) as Record<string, unknown>) }
+        const obj = { ...((sec[objKey] ?? {}) as Record<string, unknown>) }
+        obj[key] = v
+        sec[objKey] = obj
+        next[parent] = sec
+        return next
+      })
+    }
     if (type === 'bool') {
       return (
-        <button onClick={() => setValue(parent, { ...parentVal, [key]: !value })} className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-primary-500' : 'bg-surface-solid'}`}>
+        <button onClick={() => setSub(!value)} className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-primary-500' : 'bg-surface-solid'}`}>
           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${value ? 'left-[22px]' : 'left-0.5'}`} />
         </button>
       )
     }
     if (item.options && item.options.length > 0) {
       return (
-        <select value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground">
+        <select value={String(value ?? '')} onChange={(e) => setSub(e.target.value)} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground">
           {item.options.map((opt, i) => {
             const label = typeof opt === 'string' ? opt : (opt.label ?? opt.value ?? '')
             const val = typeof opt === 'string' ? opt : (opt.value ?? '')
@@ -189,26 +231,35 @@ export default function PluginDetailPage() {
     }
     if (type === 'int' || type === 'float') {
       return (
-        <input type="number" value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value === '' ? '' : Number(e.target.value) })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+        <input type="number" value={String(value ?? '')} onChange={(e) => setSub(e.target.value === '' ? '' : Number(e.target.value))} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
       )
     }
     if (type === 'list') {
       const listVal = Array.isArray(value) ? value.join(', ') : String(value ?? '')
       return (
-        <input type="text" value={listVal} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} placeholder="多个值用逗号分隔" className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+        <input type="text" value={listVal} onChange={(e) => setSub(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))} placeholder="多个值用逗号分隔" className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
       )
     }
     return (
-      <input type="text" value={String(value ?? '')} onChange={(e) => setValue(parent, { ...parentVal, [key]: e.target.value })} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
+      <input type="text" value={String(value ?? '')} onChange={(e) => setSub(e.target.value)} className="h-9 w-full min-w-[180px] max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground" />
     )
   }
 
-  function renderField(key: string, item: SchemaItem) {
+  function renderField(sectionName: string, key: string, item: SchemaItem) {
     const type = (item.type as string) ?? 'string'
-    const value = config[key]
+    // 值路径: 扁平项 (sectionName='default') 存 config[key] 顶层, 分组项存 config[sectionName][key]
+    // 修复 (2026-08-11): 之前统一从 config[sectionName][key] 取, 扁平插件 (SpectreCore 等) 的
+    // 开关值读不到 (config 里是顶层键) → 开关显示不正确/不显示
+    let sectionObj = (config[sectionName] ?? {}) as Record<string, unknown>
+    let value: unknown
+    if (sectionName === 'default') {
+      value = config[key]
+    } else {
+      value = sectionObj[key]
+    }
     // object → 递归渲染其 items (对齐 AstrBot: model_frequency.probability 等嵌套)
     if (type === 'object' && item.items && typeof item.items === 'object') {
-      const sub = config[key] as Record<string, unknown> | undefined ?? {}
+      const sub = (sectionObj[key] as Record<string, unknown>) ?? {}
       const subItems = item.items as Record<string, SchemaItem>
       return (
         <div className="w-full space-y-2.5">
@@ -218,7 +269,7 @@ export default function PluginDetailPage() {
                 <div className="text-[12px] font-medium text-foreground">{sv.description || sk}</div>
                 {sv.hint && <div className="mt-0.5 text-[10.5px] text-foreground-muted/70">{sv.hint}</div>}
               </div>
-              <div className="shrink-0">{renderSubField(key, sk, sv, sub)}</div>
+              <div className="shrink-0">{renderSubField(sectionName, key, sk, sv, sub)}</div>
             </div>
           ))}
         </div>
@@ -229,7 +280,7 @@ export default function PluginDetailPage() {
     if (type === 'bool') {
       return (
         <button
-          onClick={() => setValue(key, !value)}
+          onClick={() => setSectionValue(sectionName, key, !value)}
           className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-primary-500' : 'bg-surface-solid'}`}
         >
           <span
@@ -245,7 +296,7 @@ export default function PluginDetailPage() {
       return (
         <select
           value={String(value ?? '')}
-          onChange={(e) => setValue(key, e.target.value)}
+          onChange={(e) => setSectionValue(sectionName, key, e.target.value)}
           className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
         >
           {item.options.map((opt, i) => {
@@ -268,9 +319,9 @@ export default function PluginDetailPage() {
           value={String(value ?? '')}
           onChange={(e) => {
             if (e.target.value === '') {
-              setValue(key, '') // 保存时过滤掉
+              setSectionValue(sectionName, key, '') // 保存时过滤掉
             } else {
-              setValue(key, Number(e.target.value))
+              setSectionValue(sectionName, key, Number(e.target.value))
             }
           }}
           className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
@@ -284,7 +335,7 @@ export default function PluginDetailPage() {
         <input
           type="text"
           value={listVal}
-          onChange={(e) => setValue(key, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+          onChange={(e) => setSectionValue(sectionName, key, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
           placeholder="多个值用逗号分隔"
           className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
         />
@@ -295,7 +346,7 @@ export default function PluginDetailPage() {
       <input
         type="text"
         value={String(value ?? '')}
-        onChange={(e) => setValue(key, e.target.value)}
+        onChange={(e) => setSectionValue(sectionName, key, e.target.value)}
         className="h-9 w-full max-w-[360px] rounded-lg border border-border bg-surface-solid px-2.5 text-[13px] text-foreground focus:border-primary-400 focus:outline-none"
       />
     )
@@ -409,7 +460,7 @@ export default function PluginDetailPage() {
                           </div>
                         )}
                       </div>
-                      <div className="shrink-0">{renderField(key, item)}</div>
+                      <div className="shrink-0">{renderField(sectionName, key, item)}</div>
                     </div>
                   ))}
                 </div>

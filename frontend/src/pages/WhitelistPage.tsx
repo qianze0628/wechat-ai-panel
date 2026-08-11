@@ -43,9 +43,15 @@ export default function WhitelistPage() {
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // 回复所有群聊开关 (wechat-bot .env ROOM_WHITELIST 空 = 回复所有群, 黑名单除外)
+  // 2026-08-11: 用户要求"回复所有群聊 开启后将回复所有群聊（黑名单中的群除外）。关闭则只回复白名单中的群。"
+  const [replyAllGroups, setReplyAllGroups] = useState(true)
+  const [roomWhitelist, setRoomWhitelist] = useState('')
 
   // 初次加载后同步勾选状态 (仅同步一次, 避免用户改动被覆盖)
   const syncedRef = useRef(false)
+  // 用户是否已改动 (re-fetch 时避免覆盖开关状态)
+  const dirtyRef = useRef(false)
   useEffect(() => {
     if (wl && contactsData && !syncedRef.current) {
       syncedRef.current = true
@@ -76,6 +82,17 @@ export default function WhitelistPage() {
       }
       setExcludedGroupMembers(excl)
     }
+    // 加载"回复所有群聊"开关状态 (wechat-bot .env) — 无条件调用 (2026-08-11: 之前嵌套在排除名单非空分支内,
+    // 排除名单为空时开关保持默认值不反映真实状态)
+    panelApi
+      .wechatEnvGet()
+      .then((env) => {
+        if (env.ok && !dirtyRef.current) {
+          setReplyAllGroups(env.config.replyAllGroups)
+          setRoomWhitelist(env.config.room_whitelist ?? '')
+        }
+      })
+      .catch(() => {})
   }, [wl, contactsData])
 
   const contacts = contactsData?.contacts
@@ -202,8 +219,26 @@ export default function WhitelistPage() {
         excludedGroupMembers: exclObj,
       })
       if (r.status === 'ok') {
+        // 同步"回复所有群聊"开关到 wechat-bot .env (ROOM_WHITELIST 空 = 回复所有群)
+        try {
+          // 关闭时: 用勾选的群名列表 (hashId 反查群名) 作为白名单; 开启时: 置空
+          const roomNames = replyAllGroups
+            ? ''
+            : (rooms ?? [])
+                .filter((gr) => chatIds.has(String(gr.hashId)))
+                .map((gr) => gr.name)
+                .filter(Boolean)
+                .join(',')
+          await panelApi.wechatEnvSave({
+            reply_all_groups: replyAllGroups,
+            room_whitelist: roomNames,
+          })
+        } catch (e) {
+          toast.error('白名单已保存, 但回复所有群聊开关同步失败: ' + (e instanceof Error ? e.message : String(e)))
+        }
         toast.success(r.message || '白名单已保存')
         setDirty(false)
+        dirtyRef.current = false
         refetchWl()
         refetchContacts()
       } else {
@@ -464,6 +499,28 @@ export default function WhitelistPage() {
         <div className="space-y-4">
           {/* 群聊 */}
           <div className="glass-panel">
+            {/* 回复所有群聊开关 (2026-08-11): 开启=回复所有群(黑名单除外), 关闭=只回复白名单群 */}
+            <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
+              <Toggle
+                checked={replyAllGroups}
+                onChange={() => {
+                  dirtyRef.current = true
+                  setReplyAllGroups((v) => !v)
+                  setDirty(true)
+                }}
+                label=""
+                title="开启后将回复所有群聊（黑名单中的群除外）。关闭则只回复白名单中的群。"
+                id="reply-all-groups"
+              />
+              <label htmlFor="reply-all-groups" className="cursor-pointer text-[13px] font-semibold text-foreground">
+                回复所有群聊
+              </label>
+              <span className="ml-auto text-[10.5px] leading-snug text-foreground-muted/70">
+                {replyAllGroups
+                  ? '所有群都能触发（黑名单除外）'
+                  : `仅白名单群可回复${roomWhitelist ? `（${roomWhitelist.split(',').length} 个）` : ' — 请在下方勾选群'}`}
+              </span>
+            </div>
             <div className="flex items-center gap-2 px-4 pt-4 text-[14px] font-semibold text-foreground">
               <UsersRound size={15} className="text-primary-500" />
               群聊

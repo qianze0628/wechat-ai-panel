@@ -227,7 +227,9 @@ export default function InstallModal({ trigger, onDone }: InstallModalProps) {
       {/* 完成弹窗 */}
       <SuccessModal open={showDone} onClose={() => setShowDone(false)} title="安装完成">
         <p className="text-[13px] text-foreground-muted">
-          {installState.ok ? '依赖安装成功。可到「服务中心」启动服务，或到「连接配置」扫码登录。' : '依赖安装未完成，请查看日志或手动安装缺失组件。'}
+          {installState.ok
+            ? '依赖安装成功。请重启本面板（关闭后重新打开）使新安装的 Node.js/uv 等工具生效，然后到「服务中心」启动服务，或到「连接配置」扫码登录。'
+            : '依赖安装未完成，请按日志中的手动指引安装缺失组件后，重新点击「安装依赖」。'}
         </p>
       </SuccessModal>
     </>
